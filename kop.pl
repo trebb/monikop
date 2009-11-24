@@ -22,50 +22,48 @@ use File::Rsync;
 $debug = 2;
 sub debug_print { print "@_" if $debug};
 
-#sub getstatus_lock {
-#    open LOCKFILE, '>', $lockfile_name or
-#	die "[" . $$ . "] open $lockfile_name failed: $!\n";
-#    flock (LOCKFILE, LOCK_EX);
-#    print "[" . $$ . "]{" . (time - $time0) . "} $der_name hat Lock (LOCK_EX)\n" if $debug;
-#    eval {XMLin($statusfile_name_bak)}; # Test, ob XML drin ist.
-#    $stat_status_bak = stat ($statusfile_name_bak) unless $@;
-#    eval {XMLin($statusfile_name)}; # Test, ob XML drin ist.
-#    $stat_status = stat ($statusfile_name) unless $@;
-#    unless ( $stat_status_bak || $stat_status ) { # Backup- und Statusfile fehlen oder sind kein XML.
-#	qx(echo "<opt></opt>" > $statusfile_name_bak);
-#	$stat_status_bak = stat ($statusfile_name_bak);
-#    }
-#    if (( $stat_status_bak && $stat_status && 
-#	  ($stat_status_bak->mtime > $stat_status->mtime) ) || 
-#	($stat_status_bak && ! $stat_status)) { # Backup ist neuer oder Statusfile fehlt.
-#	copy ($statusfile_name_bak, $statusfile_name);
-#    }
-#    $status = XMLin($statusfile_name, SuppressEmpty => 1, forcearray => [ qw(LIST_OF_POSTPONED LIST_OF_POSTPONEABLES) ]);
-#    return $status;
-#}
-#
-#sub putstatus_unlock {
-#    open STATUSFILE_BAK, '>', $statusfile_name_bak;
-#    print STATUSFILE_BAK XMLout(@_[0], noattr => 1, SuppressEmpty => 1);
-#    close STATUSFILE_BAK;
-#    open STATUSFILE, '>', $statusfile_name;
-#    print STATUSFILE XMLout(@_[0], noattr => 1, SuppressEmpty => 1);
-#    close STATUSFILE;
-#    flock (LOCKFILE, LOCK_UN);
-#    close LOCKFILE;
-#    print "[" . $$ . "]{" . (time - $time0) . "} $der_name: Lock freigegeben (LOCK_UN)\n" if $debug;
-#}
-#
-#sub status_unlock {
-#    flock (LOCKFILE, LOCK_UN);
-#    close LOCKFILE;
-#    print "[" . $$ . "]{" . (time - $time0) . "} $der_name: Lock freigegeben (LOCK_UN)\n" if $debug;
-#}
-#
-#sub canonical_cmndline { # mache alle Pfade in Prozesslistenzeile absolut:
-#    @aaa = split /\s/, @_[0];
-#    realpath (@aaa[0]) . " " . realpath (@aaa[1]) . " " . @aaa[2];
-#}
+# Write @content to a file with a name starting with $filename
+# and ending with _a or _b. Leave at least one such file, even if interrupted.
+sub safe_write {
+    my ($filename, @content) = @_;
+    my $filename_a = $filename;
+    my $filename_b = $filename . "_bak";
+    my $filename_unfinished = "unfinished_" . $filename;
+    local (*FILE_UNFINISHED);
+    open FILE_UNFINISHED, '>', $filename_unfinished or die "[" . $$ . "] open $filename_unfinished failed: $!\n";
+    print FILE_UNFINISHED @content;
+    close FILE_UNFINISHED;
+    qx(cp $filename_unfinished $filename_b);
+    qx(mv $filename_unfinished $filename_a);
+}
+
+sub reassure_safe_file {
+    my ($filename) = @_;
+    my $filename_a = $filename;
+    my $filename_b = $filename . "_bak";
+    if (stat $filename_b) { qx(cp $filename_b $filename_a)}
+}
+
+sub read_list {
+    my ($filename) = @_;
+    local (*FILE);
+    open FILE, '<', $filename or warn "[" . $$ . "] open $filename failed: $!\n";
+    my @value = <FILE>;
+    close FILE;
+    @value;
+}
+
+sub safe_read {
+    my ($filename) = @_;
+    my $filename_a = $filename;
+    my $filename_b = $filename . "_bak";
+    if (stat $filename_a) { my $filename = $filename_a }
+    elsif (stat $filename_b) { my $filename = $filename_b }
+    else { return () };
+    print "SAFE_READ: $filename";
+    read_list $filename;
+}
+
 #$pinger = Net::Ping->new('tcp', 1);
 ##### Einstellungen vom Inifile lesen
 #$inifile_name = ($0 . ".ini");
@@ -132,17 +130,20 @@ sub debug_print { print "@_" if $debug};
 #}
 #$time0 = time;
 
+
 @dest_roots = ( 'tt6', 'tt7', 'tt8' );
 $dest_root = 'tt6';
-@source_roots = ( 'tt11', 'tt10', 'tt9' );
+@source_roots = ( 'tt11', 'tt10', 'tt9');
+#@source_roots = ( 'tt11');
 $source_root = 'tt11';
 $progressfile_name = "progress_";
 $speedfile_name = "speed_";
 
 sub  rsync_preparation_form {
-    ($source) = @_;
+    my ($source) = @_;
     join ( '',
 	   "\n",
+##########  Write rsync's status messages for reading by a GUI
 	   '$rsync_outfun_', $source, ' = sub ',
 	   '{',
 	   '    ($outline, $outputchannel) = @_ ; ',
@@ -169,26 +170,43 @@ sub  rsync_preparation_form {
 	   'open SPEEDFILE_', $source, ', \'>\', ', $speedfile_name, $source,
 	   '    or die "[" . $$ . "] open ', $speedfile_name, $source, ' failed: $!\n";',
 	   "\n",
-	   '$rsync_', $source, ' = File::Rsync->new;',
-
+##########  Run rsync
+	   '$rsync_', $source, ' = File::Rsync->new; ',
 	   '$rsync_exec_form{\'', $source, '\'} = sub ',
 	   '{ ',
-	   '    ($destination) = @_;',
+	   '    my ($destination) = @_;',
 	   '    \'$rsync_', $source, '->exec(',
 	   '        {',
 	   '            src => \\\'', $source, '/\\\', ',
 	   '            dest => \\\'\' . $destination . \'/\\\', ',
 	   '            outfun => $rsync_outfun_', $source, ', ', 
 	   '            progress => 1, debug => 0, verbose => 0, ',
+#	   '    	filter => [\\\'dir-merge finished_', $source, '\\\',',
+#	   '                       \\\'exclude finished_', $source, '\\\'], ',
+	   '    	filter => [\\\'exclude finished_', $source, '\\\'], ',
 	   '            literal => [\\\'--temp-dir=.temp-', $source, '\\\', ',
-	   '                \\\'--recursive\\\', \\\'--times\\\', \\\'--prune-empty-dirs\\\', ',
-	   '                \\\'--log-file-format=%i %b %n\\\', ',
+	   '                        \\\'--recursive\\\', \\\'--times\\\', ',
+	   '                        \\\'--prune-empty-dirs\\\', ',
+	   '                        \\\'--log-file-format=%i %b %n\\\', ',
 	                    join (', ', map { '\\\'--compare-dest=/root/' . $_ . '/\\\'' }
 	        		      ( @dest_roots )),
-	   '                , \\\'--log-file=', 'log.', $source, '\\\'] ',
+	   '                      , \\\'--log-file=', 'log.', $source, '\\\'] ',
+	   '        }',
+	   '    );\' ',
+	   '};',
+	   "\n",
+##########  Get directory from source
+	   '$rsync_dir_', $source, ' = File::Rsync->new; ',
+	   '$rsync_dir_exec_form{\'', $source, '\'} = sub ',
+	   '{ ',
+	   '    \'$rsync_dir_', $source, '->list(',
+	   '        {',
+	   '            src => \\\'', $source, '/\\\', ',
+	   '            literal => [ \\\'--recursive\\\'] ',
 	   '        }',
 	   '    );\' ',
 	   '}',
+
 	   "\n"
 	)};
 
@@ -196,12 +214,14 @@ sub  rsync_preparation_form {
 # TODO: Put this in its own thread.
 sub rsync_someplace
 {
-    ($source, @destinations) = @_;
+    my ($source, @destinations) = @_;
     map
     {
-	debug_print "RSYNC_EXEC_FORM $source, $_:" . $rsync_exec_form{$source} (@destinations) . "\n";
+	debug_print "######################################\n";
+	debug_print "RSYNC_EXEC_FORM $source, $_:" . $rsync_exec_form{$source} ($_) . "\n";
+	debug_print "######################################\n";
 	qx(mkdir -p $_/.temp-$source);
-	eval $rsync_exec_form{$source} ($_);
+	eval ($rsync_exec_form{$source} ($_));
 	debug_print "EVAL RSYNC_EXEC_FORM $source, $_: $@ \n";
     } @destinations;
 }
@@ -211,8 +231,85 @@ map {
     debug_print 'rsync_preparation_form:' . rsync_preparation_form ($_). "\n";
     eval rsync_preparation_form $_;
     debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
+    debug_print 'rsync_dir_exec_form $_:'. $rsync_dir_exec_form{$_} () . "\n";
+    reassure_safe_file ("finished" . $_);
     rsync_someplace $_, @dest_roots; # TODO: rotate @dest_roots for load balancing: push (shift ...)...
+#### Test/exploration
+    my $rsync_log_name = "log." . $_;
+    my $finished_name = "finished_" . $_;
+    my @rsync_log = read_list $rsync_log_name;
+    my @finished = read_list $finished_name;
+    my %filelist = map {$_, 42} @finished, grep (s/[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (.*)/$1/
+						      , @rsync_log);
+    my @filelist = sort keys %filelist;
+    safe_write $finished_name, @filelist;
+    debug_print @filelist;
+
+    my @source_dir = grep (s/[drwx-]+\s+\d+ [\d\/]+ [\d:]+ (.*)/$1/ , eval $rsync_dir_exec_form{$_} ());
+    debug_print "EVAL RSYNC_DIR_EXEC_FORM $_: $@ \n";
+    debug_print "SOURCE_DIR:\n";
+    debug_print @source_dir;
+
+    my @intersection = ();
+    my %count = ();
+    foreach $element (@source_dir, @filelist) { $count{$element}++ }
+    foreach $element (keys %count) {
+	push @intersection, $element if $count{$element} > 1;
+    }
+    @intersection = sort @intersection;
+    debug_print "INTERSECTION:\n";
+    debug_print @intersection;
+    safe_write $finished_name, @intersection;
+    unlink $rsync_log_name;
+
+    debug_print "#######################################################################\n";
 } @source_roots;
+
+__END__
+
+
+
+    #### Filterdateien von Quelle holen:
+    $status = getstatus_lock;
+    ${$status}{$der_name}{'STATUS'} = "RECEIVE_FILTERFILES";
+    ${$status}{$der_name}{'TIME_OF_STATUS'} = time;
+    putstatus_unlock $status;
+    $rsync->exec( { src => $src_root, dest => $dest_root, 
+		    filter => ['include */', 'include ' . $rsync_filter_name, 'exclude *',
+			       'dir-merge,- ' . $copy_postponed_file_name] } )
+	or die "[" . $$ . "] rsync (4) failed: " . $rsync->lastcmd . " $!\n";
+    print "[" . $$ . "]{" . (time - $time0) . "} Filterdaten geholt\n" if $debug;
+    foreach (@dateiliste) {
+	/\S+\s\S+\s\[\S+\]\s[><ch\.]f\S+\s[0-9]+\s(.+)/g;
+	@tmp = splitpath($1);
+	push ( @{$dirs {$tmp[1]}}, $tmp[2] ); # Dirname = Key in $dirs, Referenz auf Filename-Array = Wert
+    }
+    print "[" . $$ . "]{" . (time - $time0) . "} Dateiliste ausgewertet\n" if $debug;
+    #### Neue Kopiererfolge an alte Filterdateien anhängen:
+    foreach (keys %dirs) {
+	my $rsync_filter_path_name = catfile (($dest_root, $_), $rsync_filter_name);
+	open RSYNC_FILTER, '>>', catfile (($dest_root, $_), $rsync_filter_name)
+	    or die "[" . $$ . "] open" . catfile (($dest_root, $_), $rsync_filter_name) . " failed: $!\n";
+	foreach (@{$dirs{$_}}) {
+	    if ( !/^\s$/g ) {print RSYNC_FILTER '- /'. $_ . "\n" or die "[" . $$ . "] print failed: $!\n"}
+	}
+	close RSYNC_FILTER;
+    }
+    print "[" . $$ . "]{" . (time - $time0) . "} Filterdaten vervollständigt\n" if $debug;
+    #### Filterdateien  zur Quelle verschieben:
+    $status = getstatus_lock;
+    ${$status}{$der_name}{'STATUS'} = "SEND_FILTERFILES";
+    ${$status}{$der_name}{'TIME_OF_STATUS'} = time;
+    putstatus_unlock $status;
+    $rsync->exec( { src => $dest_root, dest => $src_root, 
+		    literal => ['--remove-source-files', '--prune-empty-dirs', 
+				'--omit-dir-times'], 
+		    filter => ['include */', 'include ' . $rsync_filter_name, 'exclude *'] } ) 
+	or die "[" . $$ . "] rsync (5) failed: " . $rsync->lastcmd . " $!\n";
+    print "[" . $$ . "]{" . (time - $time0) . "} Filterdaten zurückgesendet\n" if $debug;
+
+
+
 __END__
 
 debug_print 'RSYNC_EXEC_FORM:' . $rsync_exec_form{'tt11'} ($dest_root) . "\n";
@@ -239,14 +336,6 @@ print $rsync->lastcmd . "\n";
 
 
 __END__
-$rsync->exec( { src => $src_root,
-		dest => $dest_root,
-		literal => ['--temp-dir=' . '.temp-' . $src_root,
-
-
-			    '--log-file=' . 'l11']
-	      } );
-
 
 #    $rsync->exec( { src => $src_root, dest => $dest_root, 
 #		    filter => ['exclude ' . $rsync_filter_name],
