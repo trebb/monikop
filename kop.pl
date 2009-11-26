@@ -6,7 +6,7 @@ use Data::Dumper;
 #use List::Util qw/max min sum/;
 #use Proc::ProcessTable;
 #use Proc::Killfam;
-use Net::Ping;
+#use Net::Ping;
 #use Cwd 'realpath';
 #use Fcntl ':flock'; 
 use Fcntl 'SEEK_SET'; 
@@ -102,6 +102,7 @@ $progressfile_prefix = '/root/progress_'; # UI data; prepend path.
 $speedfile_prefix = '/root/speed_'; # UI data; prepend path.
 $safe_file_backup_suffix = '_bak'; # How to name the duplicate of a safe file.
 $safe_file_unfinished_suffix = '_unfinished'; # Name of a safe file wannabe.
+$coffee_break = 10; # Time in seconds before rsync gets restarted.
 $debug = 2;
 
 sub debug_print { if ($debug) { print @_; } };
@@ -235,21 +236,26 @@ sub rsync_preparation_form {
 	)};
 
 # Run rsync for one $source, try all destinations
-# TODO: Put this in its own thread.
 sub rsync_someplace
 {
     my ($source, @destinations) = @_;
+    my $success = 0;
     map
     {
 	my $complete_destination = $_ . '/' . $path_in_destination;
 	debug_print "######################################\n";
-	print "COMPLETE_DESTINATION:$complete_destination \n";
 	debug_print "RSYNC_EXEC_FORM $source, $_:" . $rsync_exec_form{$source} ($complete_destination) . "\n";
 	debug_print "######################################\n";
 	qx(mkdir -p $complete_destination/$rsync_tempdir_prefix$source);
-	eval ($rsync_exec_form{$source} ($complete_destination));
-	debug_print "EVAL RSYNC_EXEC_FORM $source, $complete_destination: $@ \n";
+	if (eval ($rsync_exec_form{$source} ($complete_destination))) {
+	    debug_print "EVAL RSYNC_EXEC_FORM (successful) $source, $complete_destination: $@ \n";
+	    $success = 1;
+	} else {
+	    debug_print "EVAL RSYNC_EXEC_FORM (failed) $source, $complete_destination: $@ \n";
+	    $success = 0;
+	}
     } @destinations;
+    $success;
 }
 
 # Preparations done; sleeves up!
@@ -276,41 +282,56 @@ map {
 
 # Set up and start things per source_root:
 map {
-    my $rsync_log_name = $rsync_log_prefix . $_;
-    my $finished_name = $finished_prefix . $_;
-    debug_print 'rsync_preparation_form:' . rsync_preparation_form ($_). "\n";
-    eval rsync_preparation_form $_;
-    debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
-    debug_print 'rsync_dir_exec_form $_:'. $rsync_dir_exec_form{$_} () . "\n";
-    reassure_safe_file $finished_name;
-    rsync_someplace $_, @destination_roots; # TODO: rotate @destination_roots for load balancing: push (shift ...)...
-    my @rsync_log = read_list $rsync_log_name;
-    my @finished = safe_read $finished_name;
-    my %filelist = map {$_, 42} @finished, grep (s/[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (.*)/$1/,
-						 @rsync_log);
-    my @filelist = sort keys %filelist;
-    safe_write $finished_name, @filelist;
-    debug_print @filelist;
-    my @source_dir = grep (s/[drwx-]+\s+\d+ [\d\/]+ [\d:]+ (.*)/$1/ , eval $rsync_dir_exec_form{$_} ());
-    debug_print "EVAL RSYNC_DIR_EXEC_FORM $_: $@ \n";
-    debug_print "SOURCE_DIR:\n";
-    debug_print @source_dir;
+    $rsync_worker_thread{$_} = async {
+	while (1) {
+	    my $rsync_log_name = $rsync_log_prefix . $_;
+	    my $finished_name = $finished_prefix . $_;
+	    debug_print 'rsync_preparation_form:' . rsync_preparation_form ($_). "\n";
+	    eval rsync_preparation_form $_;
+	    debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
+	    debug_print 'rsync_dir_exec_form $_:'. $rsync_dir_exec_form{$_} () . "\n";
+	    reassure_safe_file $finished_name;
 
-    @intersection = intersection @source_dir, @filelist;
+	    if (rsync_someplace $_, @destination_roots) { # TODO: rotate @destination_roots for load balancing: push (shift ...)...
+		my @rsync_log = read_list $rsync_log_name;
+		my @finished = safe_read $finished_name;
+		my %filelist = map {$_, 42} @finished, grep (s/[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (.*)/$1/,
+							     @rsync_log);
+		my @filelist = sort keys %filelist;
+		safe_write $finished_name, @filelist;
+		debug_print @filelist;
+		my @source_dir = grep (s/[drwx-]+\s+\d+ [\d\/]+ [\d:]+ (.*)/$1/ , eval $rsync_dir_exec_form{$_} ());
+		debug_print "EVAL RSYNC_DIR_EXEC_FORM $_: $@ \n";
+		debug_print "SOURCE_DIR:\n";
+		debug_print @source_dir;
+		
+		@intersection = intersection @source_dir, @filelist;
+		debug_print "INTERSECTION:\n";
+		debug_print @intersection;
+		safe_write $finished_name, @intersection; # TODO: plug in expression here.
 
-    debug_print "INTERSECTION:\n";
-    debug_print @intersection;
-    safe_write $finished_name, @intersection;
-    unlink $rsync_log_name unless $debug;
-    debug_print "#######################################################################\n";
+		unlink $rsync_log_name unless $debug;
+		debug_print "#######################################################################\n";
+	    }
+	    sleep $coffee_break;
+	}
+    }
 } keys %source_roots;
 
-# Tidy up
+# Let the workers toil. I'm the boss here.
+sleep;
+
+# Tidy up. (Except we don't reach this.)
 map {
     $being_deleted_thread{$_}->join if $being_deleted_thread{$_};
 } @destination_roots;
-__END__
 
+map {
+    $rsync_worker_thread{$_}->join if $rsync_worker_thread{$_};
+} @source_roots;
+
+
+__END__
 
 
     #### Filterdateien von Quelle holen:
