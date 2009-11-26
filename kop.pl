@@ -6,7 +6,7 @@ use Data::Dumper;
 #use List::Util qw/max min sum/;
 #use Proc::ProcessTable;
 #use Proc::Killfam;
-#use Net::Ping;
+use Net::Ping;
 #use Cwd 'realpath';
 #use Fcntl ':flock'; 
 use Fcntl 'SEEK_SET'; 
@@ -17,52 +17,7 @@ use File::Rsync;
 #use File::Copy;
 #use File::Spec::Functions qw/splitpath catfile/;
 #use XML::Simple;
-
-
-$debug = 2;
-sub debug_print { print "@_" if $debug};
-
-# Write @content to a file with a name starting with $filename
-# and ending with _a or _b. Leave at least one such file, even if interrupted.
-sub safe_write {
-    my ($filename, @content) = @_;
-    my $filename_a = $filename;
-    my $filename_b = $filename . "_bak";
-    my $filename_unfinished = "unfinished_" . $filename;
-    local (*FILE_UNFINISHED);
-    open FILE_UNFINISHED, '>', $filename_unfinished or die "[" . $$ . "] open $filename_unfinished failed: $!\n";
-    print FILE_UNFINISHED @content;
-    close FILE_UNFINISHED;
-    qx(cp $filename_unfinished $filename_b);
-    qx(mv $filename_unfinished $filename_a);
-}
-
-sub reassure_safe_file {
-    my ($filename) = @_;
-    my $filename_a = $filename;
-    my $filename_b = $filename . "_bak";
-    if (stat $filename_b) { qx(cp $filename_b $filename_a)}
-}
-
-sub read_list {
-    my ($filename) = @_;
-    local (*FILE);
-    open FILE, '<', $filename or warn "[" . $$ . "] open $filename failed: $!\n";
-    my @value = <FILE>;
-    close FILE;
-    @value;
-}
-
-sub safe_read {
-    my ($filename) = @_;
-    my $filename_a = $filename;
-    my $filename_b = $filename . "_bak";
-    if (stat $filename_a) { my $filename = $filename_a }
-    elsif (stat $filename_b) { my $filename = $filename_b }
-    else { return () };
-    print "SAFE_READ: $filename";
-    read_list $filename;
-}
+use Thread 'async';
 
 #$pinger = Net::Ping->new('tcp', 1);
 ##### Einstellungen vom Inifile lesen
@@ -130,16 +85,86 @@ sub safe_read {
 #}
 #$time0 = time;
 
+########################################
+# Global defaults
+########################################
+@usable_mount_points = ('/root/tt6', '/root/tt7', '/root/tt8', '/blah'); # Possible mount points. Must be unique.
+$path_in_destination = 'measuring_data';
+$path_in_destination_backed_up = 'backed_up';
+$path_in_destination_being_deleted = 'being_deleted';
+$rsync_tempdir_prefix = '.rsync_temp_';
+# Possible sources.
+%source_roots = ('tt11' => '/log', 'tt10' => '/log', 'tt9' => '/log', 'vvastr164' => '::ftp');
+#%source_roots = ('tt11' => '/log');
+$rsync_log_prefix = '/root/log.'; # rsync's raw log; prepend path.
+$finished_prefix = '/root/finished_'; # List of successfully rsynced files; prepend path.
+$progressfile_prefix = '/root/progress_'; # UI data; prepend path.
+$speedfile_prefix = '/root/speed_'; # UI data; prepend path.
+$safe_file_backup_suffix = '_bak'; # How to name the duplicate of a safe file.
+$safe_file_unfinished_suffix = '_unfinished'; # Name of a safe file wannabe.
+$debug = 2;
 
-@dest_roots = ( 'tt6', 'tt7', 'tt8' );
-$dest_root = 'tt6';
-@source_roots = ( 'tt11', 'tt10', 'tt9');
-#@source_roots = ( 'tt11');
-$source_root = 'tt11';
-$progressfile_name = "progress_";
-$speedfile_name = "speed_";
+sub debug_print { if ($debug) { print @_; } };
 
-sub  rsync_preparation_form {
+# Return sorted intersection of arrays which are supposed to have unique
+# elements.
+sub intersection {
+    my @intersection = ();
+    my %count = ();
+    foreach $element (@_) { $count{$element}++ }
+    foreach $element (keys %count) {
+	push @intersection, $element if $count{$element} > 1;
+    }
+    sort @intersection;
+}
+
+# Write @content to a file with a name starting with $filename
+# and ending with _a or _b. Leave at least one such file, even if interrupted.
+sub safe_write {
+    my ($filename, @content) = @_;
+    my $filename_a = $filename;
+    my $filename_b = $filename . $safe_file_backup_suffix;
+    my $filename_unfinished = $filename . $safe_file_unfinished_suffix;
+    local (*FILE_UNFINISHED);
+    open FILE_UNFINISHED, '>', $filename_unfinished or die "[" . $$ . "] open $filename_unfinished failed: $!\n";
+    print FILE_UNFINISHED @content;
+    close FILE_UNFINISHED;
+    qx(cp $filename_unfinished $filename_b);
+    qx(mv $filename_unfinished $filename_a);
+}
+
+sub reassure_safe_file {
+    my ($filename) = @_;
+    my $filename_a = $filename;
+    my $filename_b = $filename . $safe_file_backup_suffix;
+    qx(touch $filename_a);
+    if (stat $filename_b) {
+	qx(cp $filename_b $filename_a)
+    }
+}
+
+# Put contents of $filename into an array.
+sub read_list {
+    my ($filename) = @_;
+    local (*FILE);
+    open FILE, '<', $filename or warn "[" . $$ . "] open $filename failed: $!\n";
+    my @value = <FILE>;
+    close FILE;
+    @value;
+}
+
+sub safe_read {
+    my ($filename) = @_;
+    my $filename_a = $filename;
+    my $filename_b = $filename . $safe_file_backup_suffix;
+    if (stat $filename_a) { my $filename = $filename_a }
+    elsif (stat $filename_b) { my $filename = $filename_b }
+    else { return () }
+    print "SAFE_READ: $filename";
+    read_list $filename;
+}
+
+sub rsync_preparation_form {
     my ($source) = @_;
     join ( '',
 	   "\n",
@@ -164,49 +189,48 @@ sub  rsync_preparation_form {
 	   '    };',
 	   '};',
 	   "\n",
-	   'open PROGRESSFILE_', $source, ', \'>\', ', $progressfile_name, $source,
-	   '    or die "[" . $$ . "] open ', $progressfile_name, $source, ' failed: $!\n";',
+	   'open PROGRESSFILE_', $source, ', \'>\', \'', $progressfile_prefix, $source, '\'',
+	   '    or die "[" . $$ . "] open ', $progressfile_prefix, $source, ' failed: $!\n";',
 	   "\n",
-	   'open SPEEDFILE_', $source, ', \'>\', ', $speedfile_name, $source,
-	   '    or die "[" . $$ . "] open ', $speedfile_name, $source, ' failed: $!\n";',
+	   'open SPEEDFILE_', $source, ', \'>\', \'', $speedfile_prefix, $source, '\'',
+	   '    or die "[" . $$ . "] open ', $speedfile_prefix, $source, ' failed: $!\n";',
 	   "\n",
 ##########  Run rsync
 	   '$rsync_', $source, ' = File::Rsync->new; ',
+##########  Return fodder for another eval
 	   '$rsync_exec_form{\'', $source, '\'} = sub ',
 	   '{ ',
-	   '    my ($destination) = @_;',
+	   '    my ($complete_destination) = @_; print "COMPLETE_DESTINATION(rsync_exec_form): $complete_destination \n";',
 	   '    \'$rsync_', $source, '->exec(',
 	   '        {',
-	   '            src => \\\'', $source, '/\\\', ',
-	   '            dest => \\\'\' . $destination . \'/\\\', ',
+	   '            src => \\\'', $source, $source_roots{$source}, '/\\\', ',
+	   '            dest => \\\'\' . $complete_destination . \'/\\\', ',
 	   '            outfun => $rsync_outfun_', $source, ', ', 
 	   '            progress => 1, debug => 0, verbose => 0, ',
-#	   '    	filter => [\\\'dir-merge finished_', $source, '\\\',',
-#	   '                       \\\'exclude finished_', $source, '\\\'], ',
-	   '    	filter => [\\\'exclude finished_', $source, '\\\'], ',
-	   '            literal => [\\\'--temp-dir=.temp-', $source, '\\\', ',
+	   '    	filter => [\\\'merge,- ', $finished_prefix, $source, '\\\'], ',
+	   '            literal => [\\\'--temp-dir=', $rsync_tempdir_prefix, $source, '\\\', ',
 	   '                        \\\'--recursive\\\', \\\'--times\\\', ',
 	   '                        \\\'--prune-empty-dirs\\\', ',
 	   '                        \\\'--log-file-format=%i %b %n\\\', ',
-	                    join (', ', map { '\\\'--compare-dest=/root/' . $_ . '/\\\'' }
-	        		      ( @dest_roots )),
-	   '                      , \\\'--log-file=', 'log.', $source, '\\\'] ',
+	                    join (', ', map { '\\\'--compare-dest=' .  $_ . '/' . $path_in_destination . '/\\\'' }
+	        		      ( @destination_roots )),
+	   '                      , \\\'--log-file=', $rsync_log_prefix, $source, '\\\'] ',
 	   '        }',
 	   '    );\' ',
 	   '};',
 	   "\n",
 ##########  Get directory from source
 	   '$rsync_dir_', $source, ' = File::Rsync->new; ',
+##########  Return fodder for another eval
 	   '$rsync_dir_exec_form{\'', $source, '\'} = sub ',
 	   '{ ',
 	   '    \'$rsync_dir_', $source, '->list(',
 	   '        {',
-	   '            src => \\\'', $source, '/\\\', ',
+	   '            src => \\\'', $source, $source_roots{$source}, '/\\\', ',
 	   '            literal => [ \\\'--recursive\\\'] ',
 	   '        }',
 	   '    );\' ',
 	   '}',
-
 	   "\n"
 	)};
 
@@ -217,54 +241,74 @@ sub rsync_someplace
     my ($source, @destinations) = @_;
     map
     {
+	my $complete_destination = $_ . '/' . $path_in_destination;
 	debug_print "######################################\n";
-	debug_print "RSYNC_EXEC_FORM $source, $_:" . $rsync_exec_form{$source} ($_) . "\n";
+	print "COMPLETE_DESTINATION:$complete_destination \n";
+	debug_print "RSYNC_EXEC_FORM $source, $_:" . $rsync_exec_form{$source} ($complete_destination) . "\n";
 	debug_print "######################################\n";
-	qx(mkdir -p $_/.temp-$source);
-	eval ($rsync_exec_form{$source} ($_));
-	debug_print "EVAL RSYNC_EXEC_FORM $source, $_: $@ \n";
+	qx(mkdir -p $complete_destination/$rsync_tempdir_prefix$source);
+	eval ($rsync_exec_form{$source} ($complete_destination));
+	debug_print "EVAL RSYNC_EXEC_FORM $source, $complete_destination: $@ \n";
     } @destinations;
 }
 
+# Preparations done; sleeves up!
+
+# Find usable destinations
+@raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
+chomp @raw_mount_points;
+@destination_roots = intersection @raw_mount_points, @usable_mount_points;
+debug_print "DESTINATION_ROOTS:\n";
+debug_print @destination_roots;
+
+# Clean up destinations
+map {
+    my $p_i_d = $_ . '/' . $path_in_destination;
+    my $p_i_d_backed_up =  $_ . '/' . $path_in_destination_backed_up;
+    my $p_i_d_being_deleted =  $_ . '/' . $path_in_destination_being_deleted;
+    if (-d $p_i_d_backed_up and -d $p_i_d_being_deleted) {
+	warn "[" . $$ . "] Both $p_i_d_backed_up and $ p_i_d_being_deleted exist. This does not normally happen. I'm deleting $p_i_d_being_deleted. Be patient.\n";
+	qx(rm -rf $p_i_d_being_deleted);
+    }
+    qx(mv -f $p_i_d_backed_up $p_i_d_being_deleted 2> /dev/null);
+    $being_deleted_thread{$_} = async { qx(rm -rf $p_i_d_being_deleted); };
+} @destination_roots;
+
 # Set up and start things per source_root:
 map {
+    my $rsync_log_name = $rsync_log_prefix . $_;
+    my $finished_name = $finished_prefix . $_;
     debug_print 'rsync_preparation_form:' . rsync_preparation_form ($_). "\n";
     eval rsync_preparation_form $_;
     debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
     debug_print 'rsync_dir_exec_form $_:'. $rsync_dir_exec_form{$_} () . "\n";
-    reassure_safe_file ("finished" . $_);
-    rsync_someplace $_, @dest_roots; # TODO: rotate @dest_roots for load balancing: push (shift ...)...
-#### Test/exploration
-    my $rsync_log_name = "log." . $_;
-    my $finished_name = "finished_" . $_;
+    reassure_safe_file $finished_name;
+    rsync_someplace $_, @destination_roots; # TODO: rotate @destination_roots for load balancing: push (shift ...)...
     my @rsync_log = read_list $rsync_log_name;
-    my @finished = read_list $finished_name;
-    my %filelist = map {$_, 42} @finished, grep (s/[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (.*)/$1/
-						      , @rsync_log);
+    my @finished = safe_read $finished_name;
+    my %filelist = map {$_, 42} @finished, grep (s/[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (.*)/$1/,
+						 @rsync_log);
     my @filelist = sort keys %filelist;
     safe_write $finished_name, @filelist;
     debug_print @filelist;
-
     my @source_dir = grep (s/[drwx-]+\s+\d+ [\d\/]+ [\d:]+ (.*)/$1/ , eval $rsync_dir_exec_form{$_} ());
     debug_print "EVAL RSYNC_DIR_EXEC_FORM $_: $@ \n";
     debug_print "SOURCE_DIR:\n";
     debug_print @source_dir;
 
-    my @intersection = ();
-    my %count = ();
-    foreach $element (@source_dir, @filelist) { $count{$element}++ }
-    foreach $element (keys %count) {
-	push @intersection, $element if $count{$element} > 1;
-    }
-    @intersection = sort @intersection;
+    @intersection = intersection @source_dir, @filelist;
+
     debug_print "INTERSECTION:\n";
     debug_print @intersection;
     safe_write $finished_name, @intersection;
-    unlink $rsync_log_name;
-
+    unlink $rsync_log_name unless $debug;
     debug_print "#######################################################################\n";
-} @source_roots;
+} keys %source_roots;
 
+# Tidy up
+map {
+    $being_deleted_thread{$_}->join if $being_deleted_thread{$_};
+} @destination_roots;
 __END__
 
 
@@ -320,7 +364,6 @@ print "EVAL RSYNC_EXEC_FORM: $@ \n";
 print @err . "(err)\n"; # needs to be 6 (no space left on device) or nothing
 print $rsync_tt11->lastcmd . "(lastcmd)\n";
 
-__END__
 
 
 
@@ -430,57 +473,6 @@ foreach $mountpoint (@mountpoints) {
 	print "[" . $$ . "] " . $mountpoint . " gibt es nicht\n" if $debug; 
     }
 }
-print "\n[" . $$ . "] Hierhin wird gespeichert " . "$dest_root\n" if $debug;
-unless ($dest_root) { # Kein passendes Speicherziel gefunden
-    if (@destination_blocks) { # Datenmengen größer als Platten
-        #### Auf $src_root ausschließbare Verzeichnisse suchen:
-	$status = getstatus_lock;
-	${$status}{$der_name}{'STATUS'} = "LOOK_FOR_POSTPONEABLES";
-	${$status}{$der_name}{'TIME_OF_STATUS'} = time;
-	putstatus_unlock $status;
-	$rsync->exec( { src => $src_root, dest => 'dummy',
-			filter => ['include /*/',
-				   'exclude *'],
-			literal => ['--list-only', '--no-recursive'] } ) 
-	    or die "[" . $$ . "] rsync (2.a) failed: " . $rsync->lastcmd . " $!\n";
-	print "[" . $$ . "]{" . (time - $time0) . "} Postponed-Dateien gesucht\n" if $debug;
-	# Nur Namen von ausschließbaren Verzeichnissen:
-	@list_of_postponeables = grep s/.*\d\d:\d\d:\d\d\s+(\S.*\S)$/\1\//g, $rsync->out;
-	chomp @list_of_postponeables;
-	$status = getstatus_lock;
-	print "Postponeables: " . Dumper @list_of_postponeables if debug;
-	@{${$status}{$der_name}{'LIST_OF_POSTPONEABLES'}} = @list_of_postponeables;
-	${$status}{$der_name}{'STATUS'} = 'ERROR:DISKS_TOO_SMALL';
-	putstatus_unlock $status;
-	print "\n[" . $$ . "] DESTINATION_BLOCKS: " . Dumper @destination_blocks if $debug;
-	print "\n[" . $$ . "] GROESSEN: " . Dumper @groessen if $debug;
-    } else { # Platten einfach nur zu voll
-	$status = getstatus_lock;
-	${$status}{$der_name}{'STATUS'} = 'ERROR:NO_ROOM_LEFT';
-	putstatus_unlock $status;
-    }
-    #### Nachsehen, ob auf $src_root schon Verzeichnisse ausgeschlossen sind:
-    $rsync->exec( { src => $src_root, dest => 'dummy',
-		    filter => ['include */', 'include ' . $copy_postponed_file_name,
-			       'exclude *'],
-		    literal => ['--list-only', '--prune-empty-dirs'] } ) 
-	or die "[" . $$ . "] rsync (7) failed: " . $rsync->lastcmd . " $!\n";
-    print "[" . $$ . "]{" . (time - $time0) . "} Postponed-Dateien gesucht\n" if $debug;
-    # Nur Namen von Verzeichnissen mit $copy_postponed_file_name drin:
-    @list_of_postponed = grep s/.*\d\d:\d\d:\d\d\s+(\S.*\S\/)$copy_postponed_file_name$/\1/g , $rsync->out;
-    chomp @list_of_postponed;
-    print "Postponed: " . Dumper @list_of_postponed if debug;
-    $status = getstatus_lock;
-    ${$status}{$der_name}{'DESTINATION'} = $dest_root;
-    ${$status}{$der_name}{'BYTES_TO_RECEIVE'} = max @groessen;
-    ${$status}{$der_name}{'FILES_TO_RECEIVE'} = $filezahl;
-    ${$status}{$der_name}{'DESTINATION_FREE'} = 0;
-    ${$status}{$der_name}{'TIME_OF_STATUS'} = time;
-    ${$status}{$der_name}{'DISKS_TOO_SMALL_BY'} = max (@groessen) - min (@destination_blocks);
-    @{${$status}{$der_name}{'LIST_OF_POSTPONED'}} = @list_of_postponed;
-    putstatus_unlock $status;
-    die "[" . $$ . "] Keinen ausreichenden Platz für die zu kopierenden $groesse Bytes gefunden.\n";
-}
 qx(mkdir $dest_root) unless -d $dest_root;
 if (-d $dest_root) {
     #### Messdaten von Quelle holen:
@@ -541,22 +533,6 @@ ${$status}{$der_name}{'TIME_OF_STATUS'} = time;
 	or die "[" . $$ . "] rsync (5) failed: " . $rsync->lastcmd . " $!\n";
     print "[" . $$ . "]{" . (time - $time0) . "} Filterdaten zurückgesendet\n" if $debug;
 
-#### Die (wenigen) Messdaten holen, die, weil schon mal kopiert, per 
-####  Datei $rsync_filter_name ausgeschlossen sind, sich aber noch geändert haben:
-####  (Haben wir schon anfangs mit alter $dest_root gemacht, jetzt vorsichtshalber
-####  mit neuer $dest_root)
-    $status = getstatus_lock;
-    ${$status}{$der_name}{'STATUS'} = "GET_NEW_LEFTOVER";
-    ${$status}{$der_name}{'TIME_OF_STATUS'} = time;
-    putstatus_unlock $status;
-    $dest_root = ${$status}{$der_name}{'DESTINATION'};
-    $rsync->exec( { src => $src_root, dest => $dest_root, 
-		    filter => ['exclude ' . $rsync_filter_name,
-			       'dir-merge,- ' . $copy_postponed_file_name],
-		    literal => ['--existing', '--itemize-changes', '--itemize-changes', 
-				'--log-file=' . $rsync_log_name, '--log-file-format=' . '%i %b %n'] } ) 
-	or die "[" . $$ . "] rsync (6) failed: " . $rsync->lastcmd . " $!\n";
-    print "[" . $$ . "]{" . (time - $time0) . "} Letzte geänderte Messdaten geholt\n" if $debug;
 
 #### Aufräumen    
     unlink $rsync_log_name;
