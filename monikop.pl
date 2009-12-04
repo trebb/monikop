@@ -3,26 +3,13 @@
 use warnings;
 #use diagnostics;
 use Data::Dumper;
-#use List::Util qw/max min sum/;
-#use Proc::ProcessTable;
-#use Proc::Killfam;
-#use Net::Ping;
-#use Cwd 'realpath';
-#use Fcntl ':flock'; 
-use Fcntl 'SEEK_SET'; 
-#use Filesys::Df;
 use File::Rsync;
-#use File::Touch;
-#use File::stat;
-#use File::Copy;
-#use File::Spec::Functions qw/splitpath catfile/;
-#use XML::Simple;
 use Thread 'async';
-use threads;
+#use threads;
 use threads::shared;
 use Curses;
 
-@monikop_ad = (
+my @monikop_banner = (
     "    _/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/_/_/   ", 
     "   _/_/  _/_/  _/    _/  _/_/    _/    _/    _/  _/    _/    _/  _/    _/  ",
     "  _/  _/  _/  _/    _/  _/  _/  _/    _/    _/_/      _/    _/  _/_/_/     ", 
@@ -33,9 +20,9 @@ use Curses;
 ########################################
 # Global defaults
 ########################################
-$debug = 0; # 0 = clean UI; 1 = lots of scrolling junk
+$debug = 0; # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
 # Possible mount points. Must be unique.
-@usable_mount_points = ('/root/tt6', '/root/tt7', '/root/tt8', '/blah');
+@usable_mount_points = ('/mnt/hdd_01', '/mnt/hdd_02', '/mnt/hdd_03');
 # Directory to put new data in.
 $path_in_destination = 'measuring_data';
 # A directory of this name will be deleted.
@@ -45,7 +32,7 @@ $path_in_destination_being_deleted = 'being_deleted';
 # Directory inside $path_in_destination where rsync stores unfinished files
 $rsync_tempdir_prefix = '.rsync_temp_';
 # Possible data sources.
-%source_roots = ('tt11' => '/log', 'tt10' => '/log', 'tt9' => '/log', 'vvastr164' => '::ftp');
+%source_roots = ('host_a' => '::dat', 'host_2' => '::dat', 'host_3' => '::dat', );
 #%source_roots = ('tt11' => '/log');
 # Full path to rsync's raw log
 $rsync_log_prefix = '/root/log.';
@@ -59,7 +46,8 @@ $safe_file_unfinished_suffix = '_unfinished';
 $key_f3_action = "touch f3_pressed";
 # What to do when F6 has been pressed
 $key_f6_action = "touch f6_pressed";
-$coffee_break = 10; # Time in seconds before rsync gets restarted.
+# Time in seconds before rsync gets restarted.
+$coffee_break = 10; 
 
 # Local changes to the above.
 do "monikop.config";
@@ -67,10 +55,11 @@ do "monikop.config";
 # Places for running rsyncs to put their runtime info in
 my %speeds :shared;
 my %progress_ratios :shared;
-# Other information
+# Other run-time information
 my %destination_usages :shared;
 my %destination_usage_ratios :shared;
 my %destination_source_is_writing_to :shared;
+my %success :shared;
 
 sub debug_print { if ($debug) { print @_; } };
 
@@ -79,6 +68,7 @@ sub debug_print { if ($debug) { print @_; } };
 sub intersection {
     my @intersection = ();
     my %count = ();
+    my $element;
     foreach $element (@_) { $count{$element}++ }
     foreach $element (keys %count) {
 	push @intersection, $element if $count{$element} > 1;
@@ -197,21 +187,20 @@ sub act_on_keypress {
 # Run rsync for one $source, try all destinations
 sub rsync_someplace {
     my ($source, @destinations) = @_;
-    my $success = 0;
     foreach  (@destinations) {
 	$destination_source_is_writing_to{$source} = $_;
 	my $complete_destination = $_ . '/' . $path_in_destination;
 	qx(mkdir -p $complete_destination/$rsync_tempdir_prefix$source);
 	if (eval ($rsync_exec_form{$source} ($complete_destination))) {
 	    debug_print "EVAL RSYNC_EXEC_FORM (successful) $source, $complete_destination: $@ \n";
-	    $success = 1;
+	    $success{$source} = 1;
 	    last; # unnecessary reruns would put empty dirs into otherwise unused destinations
 	} else {
 	    debug_print "EVAL RSYNC_EXEC_FORM (failed) $source, $complete_destination: $@ \n";
-	    $success = 0;
+	    $success{$source} = 0;
 	}
     }
-    $success;
+    $success{$source};
 }
 
 
@@ -240,7 +229,7 @@ map {
 # Set up and start things per source_root:
 map {
     push (@destination_roots, shift (@destination_roots)); # rotate for crude load balancing
-    $progress_ratios{$_} = " ?"; # Initialize (for UI)
+    $progress_ratios{$_} = "?"; # Initialize for UI
     $rsync_worker_thread{$_} = async {
 	while (1) {
 	    my $rsync_log_name = $rsync_log_prefix . $_;
@@ -273,7 +262,7 @@ map {
 } keys %source_roots;
 
 # Provide some reassuring user information:
-$destinations_monitor_thread = async {
+my $destinations_monitor_thread = async {
     while () {
 	map {
 	    my $complete_destination = $_ . '/' . $path_in_destination;
@@ -287,7 +276,7 @@ $destinations_monitor_thread = async {
     }
 };
 
-if ($debug) {
+if ($debug == 1) {
 # Let the workers toil.
     sleep;
 } else {
@@ -295,81 +284,99 @@ if ($debug) {
     initscr();
     cbreak();
     noecho();
-    $window_left = newwin(17, 31, 0, 0);
-    $window_right = newwin(17, 49, 0, 31);
-    $window_center = newwin(5, 80, 17, 0);
-    $window_bottom = newwin(3, 80, 22, 0);
+    curs_set(0);
+    my $window_left = newwin(LINES() -8, 29, 0, 0);
+    my $window_right = newwin(LINES() - 8, 50, 0, 29);
+    my $window_center = newwin(5, 79, LINES() - 8, 0);
+    my $window_bottom = newwin(3, 79, LINES() - 3, 0);
     $window_bottom->keypad(1);
     $window_bottom->nodelay(1);
     start_color;
-    init_pair 1, COLOR_GREEN, COLOR_BLACK;
+    init_pair 1, COLOR_MAGENTA, COLOR_BLACK;
     init_pair 2, COLOR_RED, COLOR_BLACK;
-    init_pair 3, COLOR_BLUE, COLOR_BLACK;
-    my $GREEN = COLOR_PAIR(1);
-    my $RED   = COLOR_PAIR(2);
-    my $BLUE  = COLOR_PAIR(3);
+    init_pair 3, COLOR_CYAN, COLOR_BLACK;
+    init_pair 4, COLOR_YELLOW, COLOR_BLACK;
+    my $MAGENTA = COLOR_PAIR(1);
+    my $RED = COLOR_PAIR(2);
+    my $CYAN = COLOR_PAIR(3);
+    my $YELLOW = COLOR_PAIR(4);
     
     while (1) {
+	$window_left->attron($CYAN);
 	$window_left->box(0, 0);
-	my $destinations_format = "%-15s%-11s%-3s";
+	$window_left->addstr(0, 6, "Data Destinations");
+	$window_left->attroff($CYAN);
+	my $destinations_format = "%-18s%-6s%-3s";
+	$window_left->attron(A_BOLD);
 	$window_left->addstr(1, 1,
 			     sprintf($destinations_format,
 				     "Removable", "Fresh", ""));
 	$window_left->addstr(2, 1,
 			     sprintf($destinations_format,
 				     "Disk", "Data?", "%"));
+	$window_left->attroff(A_BOLD);
 	my $destination_usage;
-	my $line_number = 4;
+	my $line_number = 3;
 	map {
 	    if ($destination_usages{$_}) {
 		$window_left->attron($RED);
 		$destination_usage = "yes";
 	    } else {
-		$window_left->attron($BLUE);
+		$window_left->attron($CYAN);
 		$destination_usage = "no";
 	    }
 	    $window_left->addstr($line_number, 1,
-				 sprintf($destinations_format, $_,
-					 $destination_usage,
-					 $destination_usage_ratios{$_}));
+				 sprintf($destinations_format,
+					 substr($_, -17, 17),
+					 substr($destination_usage, -6, 6),
+					 substr($destination_usage_ratios{$_}, -3, 3)));
 	    ++ $line_number;
 	$window_left->attroff($RED);
-	$window_left->attroff($BLUE);
-	} @destination_roots;
+	$window_left->attroff($CYAN);
+	} sort @destination_roots;
 	
+	$window_right->attron($MAGENTA);
 	$window_right->box(0,0);
-	my $sources_format = "%-15s%-10s%-6s%-15s";
+	$window_right->addstr(0, 19, "Data Sources");
+	$window_right->attroff($MAGENTA);
+	my $sources_format = "%-18s%-11s%-6s%-13s";
+	$window_right->attron(A_BOLD);
 	$window_right->addstr(1, 1,
 			      sprintf ($sources_format,
-				       "Data", "Speed", "To", "Writing"));
+				       "Data", "", "To", "Writing"));
 	$window_right->addstr(2, 1,
 			      sprintf ($sources_format,
-				       "Source", "", "Do", "To"));
-	$line_number = 4;
-	$window_right->attron($GREEN);
+				       "Source", "Speed", "Do", "To"));
+	$window_right->attroff(A_BOLD);
+	$line_number = 3;
+	$window_right->attron($MAGENTA);
 	map {
 	    my $source = $_;
+	    if ($success{$source}) { 
+		$window_right->addstr($line_number, 1,
+				      sprintf($sources_format,
+					      substr($source . $source_roots{$source}, 0, 17),
+					      substr($speeds{$source}, 0, 11),
+					      substr($progress_ratios{$source}, -6, 6),
+					      substr($destination_source_is_writing_to{$source}, -13, 13)));
+		++ $line_number;
+	    }
 	    $window_right->addstr($line_number, 1,
-				  sprintf($sources_format,
-					  $source . $source_roots{$source},
-					  $speeds{$source},
-					  $progress_ratios{$source},
-					  $destination_source_is_writing_to{$source}));
-	    ++ $line_number;
+				  sprintf($sources_format, "", "", "", ""));
 	} sort (keys %source_roots);
-	$window_right->attroff($GREEN);
+	$window_right->attroff($MAGENTA);
 
 	$line_number = 0;
 #	$window_center->attron(A_BOLD);
 	map {
-	    $window_center->addstr($line_number, 3, $_);
+	    $window_center->addstr($line_number, 2, $_);
 	    ++ $line_number;
-	} @monikop_ad;
+	} @monikop_banner;
 #	$window_center->attroff(A_BOLD);
 
 	$window_bottom->box(0,0);
 	$window_bottom->attron(A_BOLD);
-	$window_bottom->addstr(1, 10, "Turn off computer: [F3]              Restart computer: [F6]");
+	$window_bottom->addstr(1, 9, "[F3]: turn off computer              [F6]: restart computer");
 	$window_bottom->attroff(A_BOLD);
 
 	$window_left->refresh();
