@@ -20,7 +20,6 @@ my @monikop_banner = (
 ########################################
 # Global defaults
 ########################################
-$debug = 0; # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
 # Possible mount points. Must be unique.
 @usable_mount_points = ('/mnt/hdd_01', '/mnt/hdd_02', '/mnt/hdd_03');
 # Directory to put new data in.
@@ -46,12 +45,14 @@ $safe_file_unfinished_suffix = '_unfinished';
 $key_f3_action = "touch f3_pressed";
 # What to do when F6 has been pressed
 $key_f6_action = "touch f6_pressed";
-# Time in seconds before rsync gets restarted.
-$coffee_break = 10; 
-
+# Rsyncs time (in seconds) to wait for a response.
+my $rsync_timeout = 30;
 # Local changes to the above.
 do "monikop.config";
 
+my $debug = 0; # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
+# Time in seconds before rsync gets restarted.
+$coffee_break = 10;
 # Places for running rsyncs to put their runtime info in
 my %speeds :shared;
 my %progress_ratios :shared;
@@ -59,7 +60,7 @@ my %progress_ratios :shared;
 my %destination_usages :shared;
 my %destination_usage_ratios :shared;
 my %destination_source_is_writing_to :shared;
-my %success :shared;
+my %reachable :shared;
 
 sub debug_print { if ($debug) { print @_; } };
 
@@ -124,6 +125,7 @@ sub safe_read {
 
 sub rsync_preparation_form {
     my ($source) = @_;
+    $speeds{$source} = "-";
     join ( '',
 	   "\n",
 ##########  Capture rsync's status messages for usage by a GUI
@@ -134,7 +136,7 @@ sub rsync_preparation_form {
 	   '    if ($speed and $outputchannel eq \'out\') {',
 	   '        $speeds{\'', $source, '\'} = $speed;',
 	   '    } else {',
-	   '        $speeds{\'', $source, '\'} = " ---";',
+	   '        $speeds{\'', $source, '\'} = "-";',
 	   '    };',
 	   '    if ($progress_ratio and $outputchannel eq \'out\') {',
 	   '        $progress_ratios{\'', $source, '\'} = $progress_ratio;',
@@ -155,6 +157,8 @@ sub rsync_preparation_form {
 	   '    	filter => [\\\'merge,- ', $finished_prefix, $source, '\\\'], ',
 	   '            literal => [\\\'--temp-dir=', $rsync_tempdir_prefix, $source, '\\\', ',
 	   '                        \\\'--recursive\\\', \\\'--times\\\', ',
+#	   '                        \\\'--timeout=5\\\', ',
+	   '                        \\\'--timeout=', $rsync_timeout, '\\\', ',
 	   '                        \\\'--prune-empty-dirs\\\', ',
 	   '                        \\\'--log-file-format=%i %b %n\\\', ',
 	                    join (', ', map { '\\\'--compare-dest=' .  $_ . '/' . $path_in_destination . '/\\\'' }
@@ -171,9 +175,16 @@ sub rsync_preparation_form {
 	   '    \'$rsync_dir_', $source, '->list(',
 	   '        {',
 	   '            src => \\\'', $source, $source_roots{$source}, '/\\\', ',
-	   '            literal => [ \\\'--recursive\\\'] ',
+	   '            literal => [ \\\'--recursive\\\', ',
+#	   '                         \\\'--timeout=5\\\'] ',
+	   '                         \\\'--timeout=', $rsync_timeout, '\\\'] ',
 	   '        }',
 	   '    );\' ',
+	   '};',
+	   "\n",
+##########  Return fodder for another eval
+	   '$rsync_dir_err_form{\'', $source, '\'} = sub {',
+	   '    \'$rsync_dir_', $source, '->err();\' ',
 	   '}',
 	   "\n"
 	)};
@@ -187,20 +198,21 @@ sub act_on_keypress {
 # Run rsync for one $source, try all destinations
 sub rsync_someplace {
     my ($source, @destinations) = @_;
+    my $success;
     foreach  (@destinations) {
 	$destination_source_is_writing_to{$source} = $_;
 	my $complete_destination = $_ . '/' . $path_in_destination;
 	qx(mkdir -p $complete_destination/$rsync_tempdir_prefix$source);
 	if (eval ($rsync_exec_form{$source} ($complete_destination))) {
 	    debug_print "EVAL RSYNC_EXEC_FORM (successful) $source, $complete_destination: $@ \n";
-	    $success{$source} = 1;
+	    $success = 1;
 	    last; # unnecessary reruns would put empty dirs into otherwise unused destinations
 	} else {
 	    debug_print "EVAL RSYNC_EXEC_FORM (failed) $source, $complete_destination: $@ \n";
-	    $success{$source} = 0;
+	    $success = 0;
 	}
     }
-    $success{$source};
+    $success;
 }
 
 
@@ -239,24 +251,29 @@ map {
 	    debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
 	    debug_print 'rsync_dir_exec_form $_:'. $rsync_dir_exec_form{$_} () . "\n";
 	    reassure_safe_file $finished_name;
-
-	    if (rsync_someplace $_, @destination_roots) { 
-		my @rsync_log = read_list $rsync_log_name;
-		my @finished = safe_read $finished_name;
-		my %filelist = map {$_, 42} @finished, grep (s/[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (.*)/$1/,
-							     @rsync_log);
-		my @filelist = sort keys %filelist;
-		safe_write $finished_name, @filelist;
-		debug_print @filelist;
-		my @source_dir = grep (s/[drwx-]+\s+\d+ [\d\/]+ [\d:]+ (.*)/$1/ , eval $rsync_dir_exec_form{$_} ());
-		debug_print "EVAL RSYNC_DIR_EXEC_FORM $_: $@ \n";
-		debug_print "SOURCE_DIR:\n";
-		debug_print @source_dir;
-		safe_write $finished_name, intersection @source_dir, @filelist;
-		unlink $rsync_log_name unless $debug;
-		debug_print "#######################################################################\n";
+	    eval $rsync_dir_exec_form{$_}(); # kind of ping; UI info only
+	    eval $rsync_dir_err_form{$_}();
+	    $reachable{$_} = eval $rsync_dir_err_form{$_}() ? 0 : 1;
+	    debug_print "REACHABLE: $reachable{$_}\n";
+	    if ($reachable{$_}) {
+		if (rsync_someplace $_, @destination_roots) { 
+		    my @rsync_log = read_list $rsync_log_name;
+		    my @finished = safe_read $finished_name;
+		    my %filelist = map {$_, 42} @finished, grep (s/[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (.*)/$1/,
+								 @rsync_log);
+		    my @filelist = sort keys %filelist;
+		    safe_write $finished_name, @filelist;
+		    debug_print @filelist;
+		    my @source_dir = grep (s/[drwx-]+\s+\d+ [\d\/]+ [\d:]+ (.*)/$1/ , eval $rsync_dir_exec_form{$_} ());
+		    debug_print "EVAL RSYNC_DIR_EXEC_FORM $_: $@ \n";
+		    debug_print "SOURCE_DIR:\n";
+		    debug_print @source_dir;
+		    safe_write $finished_name, intersection @source_dir, @filelist;
+		    unlink $rsync_log_name;# unless $debug;
+		    debug_print "#######################################################################\n";
+		}
+		sleep $coffee_break;
 	    }
-	    sleep $coffee_break;
 	}
     }
 } keys %source_roots;
@@ -280,7 +297,7 @@ if ($debug == 1) {
 # Let the workers toil.
     sleep;
 } else {
-# Let the workers toil and talk to the user.
+# Let the workers toil; talk to the user.
     initscr();
     cbreak();
     noecho();
@@ -352,7 +369,7 @@ if ($debug == 1) {
 	$window_right->attron($MAGENTA);
 	map {
 	    my $source = $_;
-	    if ($success{$source}) { 
+	    if ($reachable{$source}) { 
 		$window_right->addstr($line_number, 1,
 				      sprintf($sources_format,
 					      substr($source . $source_roots{$source}, 0, 17),
@@ -376,7 +393,7 @@ if ($debug == 1) {
 
 	$window_bottom->box(0,0);
 	$window_bottom->attron(A_BOLD);
-	$window_bottom->addstr(1, 9, "[F3]: turn off computer              [F6]: restart computer");
+	$window_bottom->addstr(1, 3, "[F3]: Turn off computer.                         [F6]: Restart computer.");
 	$window_bottom->attroff(A_BOLD);
 
 	$window_left->refresh();
