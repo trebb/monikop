@@ -35,7 +35,9 @@ $rsync_tempdir_prefix = '.rsync_temp_';
 #%source_roots = ('tt11' => '/log');
 # Full path to rsync's raw log
 $rsync_log_prefix = '/root/log.';
-# Full path to list of successfully rsynced files.
+# Full path to list of successfully rsynced files that are still present in destination.
+$pending_prefix = '/root/pending.'; 
+# Full path to list of successfully rsynced files that have vanished from destination.
 $finished_prefix = '/root/finished_'; 
 # How to name the duplicate of a safe file.
 $safe_file_backup_suffix = '_bak'; 
@@ -50,7 +52,7 @@ my $rsync_timeout = 30;
 # Local changes to the above.
 do "monikop.config";
 
-my $debug = 0; # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
+my $debug = 1; # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
 # Time in seconds before rsync gets restarted.
 $coffee_break = 10;
 # Places for running rsyncs to put their runtime info in
@@ -63,6 +65,35 @@ my %destination_source_is_writing_to :shared;
 my %reachable :shared;
 
 sub debug_print { if ($debug) { print @_; } };
+
+# Return hash, which is sorted if accessed as an array,
+# containing the elements referenced by its first argument that have corresponding
+# keys in the hashes referenced by all of the other arguments. 
+sub hash_intersection {
+    my @hash_pointers = @_;
+    my @intersection = ();
+    my %count = ();
+    foreach my $hashtable (@hash_pointers) {
+	foreach my $element (keys %{$hashtable}) { $count{$element}++ }
+    }
+    foreach my $element (sort keys %count) {
+	if ($count{$element} == scalar @hash_pointers) {
+	    push @intersection, $element, ${$hash_pointers[0]}{$element};
+	}
+    }
+    @intersection;
+}
+
+sub make_key_from_path {
+    my $path = shift;
+    ($path) =~ s/\/?(.*)\/?/$1/g;
+    ($path) =~ s/\W/_/g;
+    $path;
+}
+
+#$x = "/a bc/d_e-f/g-p q_r.%shi";
+#print make_key_from_path  $x;
+#__END__
 
 # Return sorted intersection of arrays which are supposed to have unique
 # elements.
@@ -77,8 +108,8 @@ sub intersection {
     sort @intersection;
 }
 
-# Write @content to a file with a name starting with $filename
-# and ending with _a or _b. Leave at least one such file, even if interrupted.
+# Write @content to a file with name $filename or a name starting with $filename
+# and ending with $safe_file_backup_suffix. Leave at least one such file, even if interrupted.
 sub safe_write {
     my ($filename, @content) = @_;
     my $filename_a = $filename;
@@ -86,6 +117,7 @@ sub safe_write {
     my $filename_unfinished = $filename . $safe_file_unfinished_suffix;
     local (*FILE_UNFINISHED);
     open FILE_UNFINISHED, '>', $filename_unfinished or die "[" . $$ . "] open $filename_unfinished failed: $!\n";
+#    grep {$_ = $_ . "\n";} @content;
     print FILE_UNFINISHED @content;
     close FILE_UNFINISHED;
     qx(cp $filename_unfinished $filename_b);
@@ -157,10 +189,10 @@ sub rsync_preparation_form {
 	   '    	filter => [\\\'merge,- ', $finished_prefix, $source, '\\\'], ',
 	   '            literal => [\\\'--temp-dir=', $rsync_tempdir_prefix, $source, '\\\', ',
 	   '                        \\\'--recursive\\\', \\\'--times\\\', ',
-#	   '                        \\\'--timeout=5\\\', ',
 	   '                        \\\'--timeout=', $rsync_timeout, '\\\', ',
 	   '                        \\\'--prune-empty-dirs\\\', ',
-	   '                        \\\'--log-file-format=%i %b %n\\\', ',
+#	   '                        \\\'--log-file-format=%i %b %n\\\', ',
+	   '                        \\\'--log-file-format=%i %b %l %M %n\\\', ',
 	                    join (', ', map { '\\\'--compare-dest=' .  $_ . '/' . $path_in_destination . '/\\\'' }
 	        		      ( @destination_roots )),
 	   '                      , \\\'--log-file=', $rsync_log_prefix, $source, '\\\'] ',
@@ -176,7 +208,6 @@ sub rsync_preparation_form {
 	   '        {',
 	   '            src => \\\'', $source, $source_roots{$source}, '/\\\', ',
 	   '            literal => [ \\\'--recursive\\\', ',
-#	   '                         \\\'--timeout=5\\\'] ',
 	   '                         \\\'--timeout=', $rsync_timeout, '\\\'] ',
 	   '        }',
 	   '    );\' ',
@@ -199,12 +230,35 @@ sub act_on_keypress {
 sub rsync_someplace {
     my ($source, @destinations) = @_;
     my $success;
+
+    my $rsync_log_name = $rsync_log_prefix . $source;
+    my $finished_name = $finished_prefix . $source;
+
     foreach  (@destinations) {
 	$destination_source_is_writing_to{$source} = $_;
 	my $complete_destination = $_ . '/' . $path_in_destination;
 	qx(mkdir -p $complete_destination/$rsync_tempdir_prefix$source);
 	if (eval ($rsync_exec_form{$source} ($complete_destination))) {
 	    debug_print "EVAL RSYNC_EXEC_FORM (successful) $source, $complete_destination: $@ \n";
+
+
+	    my $pending_name = $pending_prefix . $source . "." . make_key_from_path $_;
+	    reassure_safe_file $pending_name;
+	    my %pending = safe_read $pending_name;
+	    my @rsync_log = read_list $rsync_log_name;
+	    foreach (@rsync_log) {
+		my ($file_length, $modification_time, $filename) = /[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)/;
+		if ($filename) {
+		    $pending{$filename . "\n"} = "### " . $modification_time . " " . $file_length . "\n";
+		}
+	    }
+	    debug_print "PENDING($source $_)";
+	    debug_print %pending;
+	    debug_print "#######################################################################\n";
+	    safe_write $pending_name, hash_intersection \%pending; # hash_intersection for sorting
+	    unlink $rsync_log_name;
+
+
 	    $success = 1;
 	    last; # unnecessary reruns would put empty dirs into otherwise unused destinations
 	} else {
@@ -217,6 +271,37 @@ sub rsync_someplace {
 
 
 # Preparations done; sleeves up!
+
+# Append $pending lists whose destinations have vanished to the per-source $finished list
+#      For each source separately, hold back new file lists per dest (OK)
+#      until dest is gone; once so, make dir-only run and compare
+#      (previously stored, perhaps as comment in exclusion lists) times
+#      or sizes, rerun rsync accordingly. Append then to main
+#      source-specific exclusion list.
+map {
+    my $usable_mount_point = $_;
+    map {
+	my $source = $_;
+	my $pending_name = $pending_prefix . $source . "." . make_key_from_path $usable_mount_point;
+	if (-f $pending_name
+	    && ! -d $usable_mount_point . "/" . $path_in_destination)
+	{
+	    my $finished_name = $finished_prefix . $source;
+	    my %finished = safe_read $finished_name;
+	    my %pending = safe_read $pending_name;
+	    my @rsync_ls = eval $rsync_dir_exec_form{$source} ();	    
+	    foreach (@rsync_ls) {
+		my ($file_length, $modification_date, $modification_time, $filename) = /[drwx-]+\s+(\d+) ([\d\/]+) ([\d:]+) (.*)/;
+		if ($filename) {
+# TODO: compare pending w/ rsync_ls
+		    $source_dir{$filename . "\n"} = "##### DIR ENTRY #####\n";
+		}
+	    }
+	    safe_write $finished_name, %finished, %pending;
+	}
+    } keys %source_roots;
+} @usable_mount_points;
+__END__
 
 # Find usable destinations
 @raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
@@ -257,20 +342,34 @@ map {
 	    debug_print "REACHABLE: $reachable{$_}\n";
 	    if ($reachable{$_}) {
 		if (rsync_someplace $_, @destination_roots) { 
-		    my @rsync_log = read_list $rsync_log_name;
-		    my @finished = safe_read $finished_name;
-		    my %filelist = map {$_, 42} @finished, grep (s/[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (.*)/$1/,
-								 @rsync_log);
-		    my @filelist = sort keys %filelist;
-		    safe_write $finished_name, @filelist;
-		    debug_print @filelist;
-		    my @source_dir = grep (s/[drwx-]+\s+\d+ [\d\/]+ [\d:]+ (.*)/$1/ , eval $rsync_dir_exec_form{$_} ());
-		    debug_print "EVAL RSYNC_DIR_EXEC_FORM $_: $@ \n";
-		    debug_print "SOURCE_DIR:\n";
-		    debug_print @source_dir;
-		    safe_write $finished_name, intersection @source_dir, @filelist;
-		    unlink $rsync_log_name;# unless $debug;
-		    debug_print "#######################################################################\n";
+
+#		    my @rsync_log = read_list $rsync_log_name;
+#		    my %finished = safe_read $finished_name;
+#		    foreach (@rsync_log) {
+#			my ($file_length, $modification_time, $filename) = /[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)/;
+#			if ($filename) {
+#			    $finished{$filename . "\n"} = "### " . $modification_time . " " . $file_length . "\n";
+#			}
+#		    }
+#		    debug_print "FINISHED";
+#		    debug_print %finished;
+#		    safe_write $finished_name, hash_intersection \%finished; # hash_intersection for sorting
+#		    my %source_dir = ();
+#		    my @rsync_ls = eval $rsync_dir_exec_form{$_} ();
+#		    foreach (@rsync_ls) {
+#			my ($file_length, $modification_date, $modification_time, $filename) = /[drwx-]+\s+(\d+) ([\d\/]+) ([\d:]+) (.*)/;
+#			if ($filename) {
+#			    $source_dir{$filename . "\n"} = "##### DIR ENTRY #####\n";
+#			}
+#		    }
+#		    my @source_dir = grep (s/[drwx-]+\s+\d+ [\d\/]+ [\d:]+ (.*)/$1/ , eval $rsync_dir_exec_form{$_} ());
+#		    debug_print "EVAL RSYNC_DIR_EXEC_FORM $_: $@ \n";
+#		    debug_print "SOURCE_DIR:\n";
+#		    debug_print %source_dir;
+#		    safe_write $finished_name, hash_intersection \%finished, \%source_dir;
+#		    unlink $rsync_log_name unless $debug;
+#		    debug_print "#######################################################################\n";
+
 		}
 		sleep $coffee_break;
 	    }
