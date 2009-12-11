@@ -2,6 +2,7 @@
 #use strict;
 use warnings;
 #use diagnostics;
+use integer;
 use Data::Dumper;
 use File::Rsync;
 use Thread 'async';
@@ -20,39 +21,57 @@ my @monikop_banner = (
 ########################################
 # Global defaults
 ########################################
-# Possible mount points. Must be unique.
-@usable_mount_points = ('/mnt/hdd_01', '/mnt/hdd_02', '/mnt/hdd_03');
-# Directory to put new data in.
-$path_in_destination = 'measuring_data';
-# A directory of this name will be deleted.
-$path_in_destination_backed_up = 'backed_up';
-# Directory name while being deleted.
-$path_in_destination_being_deleted = 'being_deleted';
-# Directory inside $path_in_destination where rsync stores unfinished files
-$rsync_tempdir_prefix = '.rsync_temp_';
-# Possible data sources.
-%source_roots = ('host_a' => '::dat', 'host_2' => '::dat', 'host_3' => '::dat', );
-#%source_roots = ('tt11' => '/log');
+# Possible data sources, and how they are to represent in destination.
+%sources = (
+#    'tt11/log' => '',
+#    'tt10/log' => '',
+    'tt9/log' => '',
+#    'vvastr164::ftp' => '',
+    'lsstr174::rsynctest' => '',
+    );
+# Possible mount points of data destinations. Must be unique.
+@usable_mount_points = (
+    '/root/tt6',
+#    '/root/tt7',
+#    '/root/tt8',
+    '/blah',
+    );
+# Directory (under a mount point) to put new data in.
+$path_in_destination =
+    'measuring_data';
+# A directory (under a mount point) of this name will be deleted.
+$path_in_destination_backed_up =
+    'backed_up';
+# Directory name (under a mount point) while being deleted.
+$path_in_destination_being_deleted =
+    'being_deleted';
+# Prefix of the directory name inside $path_in_destination where rsync stores 
+# unfinished files.
+$rsync_tempdir_prefix = '.rsync_temp.';
 # Full path to rsync's raw log
-$rsync_log_prefix = '/root/log.';
-# Full path to list of successfully rsynced files that are still present in destination.
-$pending_prefix = '/root/pending.'; 
-# Full path to list of successfully rsynced files that have vanished from destination.
-$finished_prefix = '/root/finished_'; 
+$rsync_log_prefix =
+    '/root/log.';
+# Full path to list of successfully rsynced files.
+$finished_prefix =
+    '/root/finished.'; 
 # How to name the duplicate of a safe file.
-$safe_file_backup_suffix = '_bak'; 
+$safe_file_backup_suffix =
+    '.bak'; 
 # Name of a safe file wannabe.
-$safe_file_unfinished_suffix = '_unfinished'; 
-# What to do when F3 has been pressed
-$key_f3_action = "touch f3_pressed";
-# What to do when F6 has been pressed
-$key_f6_action = "touch f6_pressed";
+$safe_file_unfinished_suffix =
+    '.unfinished'; 
+# What to do (shutdown) when F3 has been pressed
+$key_f3_action =
+    "touch f3_pressed";
+# What to do (reboot) when F6 has been pressed
+$key_f6_action =
+    "touch f6_pressed";
 # Rsyncs time (in seconds) to wait for a response.
-my $rsync_timeout = 30;
+my $rsync_timeout = 5;
 # Local changes to the above.
-do "monikop.config";
+### do "monikop.config";
 
-my $debug = 1; # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
+my $debug = 0; # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
 # Time in seconds before rsync gets restarted.
 $coffee_break = 10;
 # Places for running rsyncs to put their runtime info in
@@ -66,22 +85,14 @@ my %reachable :shared;
 
 sub debug_print { if ($debug) { print @_; } };
 
-# Return hash, which is sorted if accessed as an array,
-# containing the elements referenced by its first argument that have corresponding
-# keys in the hashes referenced by all of the other arguments. 
-sub hash_intersection {
-    my @hash_pointers = @_;
-    my @intersection = ();
-    my %count = ();
-    foreach my $hashtable (@hash_pointers) {
-	foreach my $element (keys %{$hashtable}) { $count{$element}++ }
+# Return the hash referenced by argument, which is sorted if accessed as an array.
+sub sort_hash {
+    %hash_table = @_;
+    my @sorted_hash = ();
+    foreach my $key (sort keys %hash_table) {
+	push @sorted_hash, $key, $hash_table{$key};
     }
-    foreach my $element (sort keys %count) {
-	if ($count{$element} == scalar @hash_pointers) {
-	    push @intersection, $element, ${$hash_pointers[0]}{$element};
-	}
-    }
-    @intersection;
+    @sorted_hash;
 }
 
 sub make_key_from_path {
@@ -91,9 +102,21 @@ sub make_key_from_path {
     $path;
 }
 
-#$x = "/a bc/d_e-f/g-p q_r.%shi";
-#print make_key_from_path  $x;
+debug_print %sources;
+map {
+    $source_roots{make_key_from_path $_} = $_
+} keys %sources;
+print "\n";
+print %source_roots;
 #__END__
+
+
+# Crudely turn date string(s) into a number. Chronological order is preserved.
+sub normalize_date {
+    my $date = join '', @_;
+    $date =~  tr/ \/:-//d;
+    $date;
+}
 
 # Return sorted intersection of arrays which are supposed to have unique
 # elements.
@@ -122,16 +145,6 @@ sub safe_write {
     close FILE_UNFINISHED;
     qx(cp $filename_unfinished $filename_b);
     qx(mv $filename_unfinished $filename_a);
-}
-
-sub reassure_safe_file {
-    my ($filename) = @_;
-    my $filename_a = $filename;
-    my $filename_b = $filename . $safe_file_backup_suffix;
-    qx(touch $filename_a);
-    if (stat $filename_b) {
-	qx(cp $filename_b $filename_a)
-    }
 }
 
 # Put contents of $filename into an array.
@@ -182,7 +195,7 @@ sub rsync_preparation_form {
 	   '    my ($complete_destination) = @_;',
 	   '    \'$rsync_', $source, '->exec(',
 	   '        {',
-	   '            src => \\\'', $source, $source_roots{$source}, '/\\\', ',
+	   '            src => \\\'', $source_roots{$source}, '/\\\', ',
 	   '            dest => \\\'\' . $complete_destination . \'/\\\', ',
 	   '            outfun => $rsync_outfun_', $source, ', ', 
 	   '            progress => 1, debug => 0, verbose => 0, ',
@@ -191,7 +204,6 @@ sub rsync_preparation_form {
 	   '                        \\\'--recursive\\\', \\\'--times\\\', ',
 	   '                        \\\'--timeout=', $rsync_timeout, '\\\', ',
 	   '                        \\\'--prune-empty-dirs\\\', ',
-#	   '                        \\\'--log-file-format=%i %b %n\\\', ',
 	   '                        \\\'--log-file-format=%i %b %l %M %n\\\', ',
 	                    join (', ', map { '\\\'--compare-dest=' .  $_ . '/' . $path_in_destination . '/\\\'' }
 	        		      ( @destination_roots )),
@@ -206,7 +218,7 @@ sub rsync_preparation_form {
 	   '$rsync_dir_exec_form{\'', $source, '\'} = sub {',
 	   '    \'$rsync_dir_', $source, '->list(',
 	   '        {',
-	   '            src => \\\'', $source, $source_roots{$source}, '/\\\', ',
+	   '            src => \\\'', $source_roots{$source}, '/\\\', ',
 	   '            literal => [ \\\'--recursive\\\', ',
 	   '                         \\\'--timeout=', $rsync_timeout, '\\\'] ',
 	   '        }',
@@ -234,31 +246,12 @@ sub rsync_someplace {
     my $rsync_log_name = $rsync_log_prefix . $source;
     my $finished_name = $finished_prefix . $source;
 
-    foreach  (@destinations) {
+    foreach (@destinations) {
 	$destination_source_is_writing_to{$source} = $_;
 	my $complete_destination = $_ . '/' . $path_in_destination;
 	qx(mkdir -p $complete_destination/$rsync_tempdir_prefix$source);
 	if (eval ($rsync_exec_form{$source} ($complete_destination))) {
 	    debug_print "EVAL RSYNC_EXEC_FORM (successful) $source, $complete_destination: $@ \n";
-
-
-	    my $pending_name = $pending_prefix . $source . "." . make_key_from_path $_;
-	    reassure_safe_file $pending_name;
-	    my %pending = safe_read $pending_name;
-	    my @rsync_log = read_list $rsync_log_name;
-	    foreach (@rsync_log) {
-		my ($file_length, $modification_time, $filename) = /[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)/;
-		if ($filename) {
-		    $pending{$filename . "\n"} = "### " . $modification_time . " " . $file_length . "\n";
-		}
-	    }
-	    debug_print "PENDING($source $_)";
-	    debug_print %pending;
-	    debug_print "#######################################################################\n";
-	    safe_write $pending_name, hash_intersection \%pending; # hash_intersection for sorting
-	    unlink $rsync_log_name;
-
-
 	    $success = 1;
 	    last; # unnecessary reruns would put empty dirs into otherwise unused destinations
 	} else {
@@ -271,37 +264,6 @@ sub rsync_someplace {
 
 
 # Preparations done; sleeves up!
-
-# Append $pending lists whose destinations have vanished to the per-source $finished list
-#      For each source separately, hold back new file lists per dest (OK)
-#      until dest is gone; once so, make dir-only run and compare
-#      (previously stored, perhaps as comment in exclusion lists) times
-#      or sizes, rerun rsync accordingly. Append then to main
-#      source-specific exclusion list.
-map {
-    my $usable_mount_point = $_;
-    map {
-	my $source = $_;
-	my $pending_name = $pending_prefix . $source . "." . make_key_from_path $usable_mount_point;
-	if (-f $pending_name
-	    && ! -d $usable_mount_point . "/" . $path_in_destination)
-	{
-	    my $finished_name = $finished_prefix . $source;
-	    my %finished = safe_read $finished_name;
-	    my %pending = safe_read $pending_name;
-	    my @rsync_ls = eval $rsync_dir_exec_form{$source} ();	    
-	    foreach (@rsync_ls) {
-		my ($file_length, $modification_date, $modification_time, $filename) = /[drwx-]+\s+(\d+) ([\d\/]+) ([\d:]+) (.*)/;
-		if ($filename) {
-# TODO: compare pending w/ rsync_ls
-		    $source_dir{$filename . "\n"} = "##### DIR ENTRY #####\n";
-		}
-	    }
-	    safe_write $finished_name, %finished, %pending;
-	}
-    } keys %source_roots;
-} @usable_mount_points;
-__END__
 
 # Find usable destinations
 @raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
@@ -335,41 +297,44 @@ map {
 	    eval rsync_preparation_form $_;
 	    debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
 	    debug_print 'rsync_dir_exec_form $_:'. $rsync_dir_exec_form{$_} () . "\n";
-	    reassure_safe_file $finished_name;
-	    eval $rsync_dir_exec_form{$_}(); # kind of ping; UI info only
+	    my @rsync_ls = eval $rsync_dir_exec_form{$_}();
 	    eval $rsync_dir_err_form{$_}();
 	    $reachable{$_} = eval $rsync_dir_err_form{$_}() ? 0 : 1;
 	    debug_print "REACHABLE: $reachable{$_}\n";
 	    if ($reachable{$_}) {
+		my %old_finished = safe_read $finished_name;
+		my %finished = ();
+		# Delete from %finished what has to be re-rsynced.
+		foreach (@rsync_ls) {
+		    my ($ls_size, $ls_modification_date, $ls_modification_time, $ls_filename) = /[drwx-]+\s+(\d+) ([\d\/]+) ([\d:]+) (.*)/;
+		    if ($ls_filename && exists $old_finished{$ls_filename . "\n"}) {
+			my ($finished_modification_date, $finished_size) = $old_finished{$ls_filename . "\n"} =~ /### (\S+) (\d+)$/;
+			debug_print "FD:$finished_modification_date FS:$finished_size LD:$ls_modification_date LT:$ls_modification_time N:$ls_filename\n";
+			if ( ($finished_size eq $ls_size)
+			     && (normalize_date ($finished_modification_date)
+				 eq normalize_date ($ls_modification_date, $ls_modification_time)) )
+			{
+			    $finished{$ls_filename . "\n"} = $old_finished{$ls_filename . "\n"};
+			}
+		    }
+		}
+		debug_print "FINISHED_BEFORE_RSYNC";
+		debug_print %finished;
+
+		safe_write $finished_name, %finished;
 		if (rsync_someplace $_, @destination_roots) { 
-
-#		    my @rsync_log = read_list $rsync_log_name;
-#		    my %finished = safe_read $finished_name;
-#		    foreach (@rsync_log) {
-#			my ($file_length, $modification_time, $filename) = /[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)/;
-#			if ($filename) {
-#			    $finished{$filename . "\n"} = "### " . $modification_time . " " . $file_length . "\n";
-#			}
-#		    }
-#		    debug_print "FINISHED";
-#		    debug_print %finished;
-#		    safe_write $finished_name, hash_intersection \%finished; # hash_intersection for sorting
-#		    my %source_dir = ();
-#		    my @rsync_ls = eval $rsync_dir_exec_form{$_} ();
-#		    foreach (@rsync_ls) {
-#			my ($file_length, $modification_date, $modification_time, $filename) = /[drwx-]+\s+(\d+) ([\d\/]+) ([\d:]+) (.*)/;
-#			if ($filename) {
-#			    $source_dir{$filename . "\n"} = "##### DIR ENTRY #####\n";
-#			}
-#		    }
-#		    my @source_dir = grep (s/[drwx-]+\s+\d+ [\d\/]+ [\d:]+ (.*)/$1/ , eval $rsync_dir_exec_form{$_} ());
-#		    debug_print "EVAL RSYNC_DIR_EXEC_FORM $_: $@ \n";
-#		    debug_print "SOURCE_DIR:\n";
-#		    debug_print %source_dir;
-#		    safe_write $finished_name, hash_intersection \%finished, \%source_dir;
-#		    unlink $rsync_log_name unless $debug;
-#		    debug_print "#######################################################################\n";
-
+		    my @rsync_log = read_list $rsync_log_name;
+		    foreach (@rsync_log) {
+			my ($file_length, $modification_time, $filename) = /[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)/;
+			if ($filename) {
+			    $finished{$filename . "\n"} = "### " . $modification_time . " " . $file_length . "\n";
+			}
+		    }
+		    debug_print "FINISHED_AFTER_RSYNC";
+		    debug_print %finished;
+		    safe_write $finished_name, sort_hash %finished;
+		    unlink $rsync_log_name unless $debug;
+		    debug_print "#######################################################################\n";
 		}
 		sleep $coffee_break;
 	    }
@@ -426,7 +391,7 @@ if ($debug == 1) {
 	$window_left->attron(A_BOLD);
 	$window_left->addstr(1, 1,
 			     sprintf($destinations_format,
-				     "Removable", "Fresh", ""));
+				     "Removable", "Fresh", "Usg"));
 	$window_left->addstr(2, 1,
 			     sprintf($destinations_format,
 				     "Disk", "Data?", "%"));
@@ -471,7 +436,7 @@ if ($debug == 1) {
 	    if ($reachable{$source}) { 
 		$window_right->addstr($line_number, 1,
 				      sprintf($sources_format,
-					      substr($source . $source_roots{$source}, 0, 17),
+					      substr($source_roots{$source}, 0, 17),
 					      substr($speeds{$source}, 0, 11),
 					      substr($progress_ratios{$source}, -6, 6),
 					      substr($destination_source_is_writing_to{$source}, -13, 13)));
@@ -483,12 +448,11 @@ if ($debug == 1) {
 	$window_right->attroff($MAGENTA);
 
 	$line_number = 0;
-#	$window_center->attron(A_BOLD);
 	map {
 	    $window_center->addstr($line_number, 2, $_);
 	    ++ $line_number;
 	} @monikop_banner;
-#	$window_center->attroff(A_BOLD);
+	$window_center->move(0, 0);
 
 	$window_bottom->box(0,0);
 	$window_bottom->attron(A_BOLD);
@@ -497,8 +461,8 @@ if ($debug == 1) {
 
 	$window_left->refresh();
 	$window_right->refresh();
-	$window_center->refresh();
 	$window_bottom->refresh();
+	$window_center->refresh(); # Last window gets the cursor.
 	act_on_keypress($window_bottom->getch());
 	sleep 2;
     }
