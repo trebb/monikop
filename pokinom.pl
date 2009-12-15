@@ -122,6 +122,7 @@ chomp @raw_mount_points;
 @source_roots = intersection @raw_mount_points, @possible_mount_points;
 debug_print "SOURCE_ROOTS:\n";
 debug_print @source_roots;
+# TODO: perhaps use whole string for key
 grep {
     my $key = $_; $key =~ s/\S+(\/|:|::)(\w+)$/$2/; $source_roots{$key} = $_
 } @source_roots;

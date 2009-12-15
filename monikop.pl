@@ -21,19 +21,19 @@ my @monikop_banner = (
 ########################################
 # Global defaults
 ########################################
-# Possible data sources, and how they are to represent in destination.
+# Possible data sources, and how to represent them in destination.
 %sources = (
-#    'tt11/log' => '',
-#    'tt10/log' => '',
-    'tt9/log' => '',
-#    'vvastr164::ftp' => '',
-    'lsstr174::rsynctest' => '',
+    'tt11/log' => '11',
+    'tt10/log' => '10',
+    'tt9/log' => '9',
+    'vvastr164::ftp' => '164',
+    'lsstr174::rsynctest' => '174',
     );
 # Possible mount points of data destinations. Must be unique.
 @usable_mount_points = (
     '/root/tt6',
-#    '/root/tt7',
-#    '/root/tt8',
+    '/root/tt7',
+    '/root/tt8',
     '/blah',
     );
 # Directory (under a mount point) to put new data in.
@@ -45,9 +45,9 @@ $path_in_destination_backed_up =
 # Directory name (under a mount point) while being deleted.
 $path_in_destination_being_deleted =
     'being_deleted';
-# Prefix of the directory name inside $path_in_destination where rsync stores 
-# unfinished files.
-$rsync_tempdir_prefix = '.rsync_temp.';
+### Prefix of the directory name inside $path_in_destination where rsync stores 
+### unfinished files.
+##$rsync_tempdir_prefix = '.rsync_temp.';
 # Full path to rsync's raw log
 $rsync_log_prefix =
     '/root/log.';
@@ -67,13 +67,14 @@ $key_f3_action =
 $key_f6_action =
     "touch f6_pressed";
 # Rsyncs time (in seconds) to wait for a response.
-my $rsync_timeout = 5;
+my $rsync_timeout = 30;
 # Local changes to the above.
 ### do "monikop.config";
 
 my $debug = 0; # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
 # Time in seconds before rsync gets restarted.
 $coffee_break = 10;
+
 # Places for running rsyncs to put their runtime info in
 my %speeds :shared;
 my %progress_ratios :shared;
@@ -82,6 +83,8 @@ my %destination_usages :shared;
 my %destination_usage_ratios :shared;
 my %destination_source_is_writing_to :shared;
 my %reachable :shared;
+
+my %source_roots;
 
 sub debug_print { if ($debug) { print @_; } };
 
@@ -102,14 +105,14 @@ sub make_key_from_path {
     $path;
 }
 
-debug_print %sources;
 map {
     $source_roots{make_key_from_path $_} = $_
 } keys %sources;
-print "\n";
-print %source_roots;
-#__END__
 
+my %source_dirs_in_destination;
+map {
+    $source_dirs_in_destination{make_key_from_path $_} = $sources{$_}
+} keys %sources;
 
 # Crudely turn date string(s) into a number. Chronological order is preserved.
 sub normalize_date {
@@ -188,7 +191,7 @@ sub rsync_preparation_form {
 	   '    } ;',
 	   '};',
 	   "\n",
-##########  Run rsync
+##########  Run rsync: main worker
 	   '$rsync_', $source, ' = File::Rsync->new; ',
 ##########  Return fodder for another eval
 	   '$rsync_exec_form{\'', $source, '\'} = sub {',
@@ -200,21 +203,21 @@ sub rsync_preparation_form {
 	   '            outfun => $rsync_outfun_', $source, ', ', 
 	   '            progress => 1, debug => 0, verbose => 0, ',
 	   '    	filter => [\\\'merge,- ', $finished_prefix, $source, '\\\'], ',
-	   '            literal => [\\\'--temp-dir=', $rsync_tempdir_prefix, $source, '\\\', ',
+	   '            literal => [',
 	   '                        \\\'--recursive\\\', \\\'--times\\\', ',
 	   '                        \\\'--timeout=', $rsync_timeout, '\\\', ',
 	   '                        \\\'--prune-empty-dirs\\\', ',
 	   '                        \\\'--log-file-format=%i %b %l %M %n\\\', ',
-	                    join (', ', map { '\\\'--compare-dest=' .  $_ . '/' . $path_in_destination . '/\\\'' }
+	                    join (', ', map { '\\\'--compare-dest=' .  $_ . '/' . $path_in_destination . '/' . $source_dirs_in_destination{$source} . '/\\\'' }
 	        		      ( @destination_roots )),
 	   '                      , \\\'--log-file=', $rsync_log_prefix, $source, '\\\'] ',
 	   '        }',
 	   '    );\' ',
 	   '};',
 	   "\n",
-##########  Get directory from source
+##########  Run rsync: get directory from source
 	   '$rsync_dir_', $source, ' = File::Rsync->new; ',
-##########  Return fodder for another eval
+##########  Return fodder for another eval: dir
 	   '$rsync_dir_exec_form{\'', $source, '\'} = sub {',
 	   '    \'$rsync_dir_', $source, '->list(',
 	   '        {',
@@ -225,7 +228,7 @@ sub rsync_preparation_form {
 	   '    );\' ',
 	   '};',
 	   "\n",
-##########  Return fodder for another eval
+##########  Return fodder for another eval: error code from last rsync call
 	   '$rsync_dir_err_form{\'', $source, '\'} = sub {',
 	   '    \'$rsync_dir_', $source, '->err();\' ',
 	   '}',
@@ -248,8 +251,8 @@ sub rsync_someplace {
 
     foreach (@destinations) {
 	$destination_source_is_writing_to{$source} = $_;
-	my $complete_destination = $_ . '/' . $path_in_destination;
-	qx(mkdir -p $complete_destination/$rsync_tempdir_prefix$source);
+	my $complete_destination = $_ . '/' . $path_in_destination . '/' . $source_dirs_in_destination{$source};
+	qx(mkdir -p $complete_destination);
 	if (eval ($rsync_exec_form{$source} ($complete_destination))) {
 	    debug_print "EVAL RSYNC_EXEC_FORM (successful) $source, $complete_destination: $@ \n";
 	    $success = 1;
@@ -261,7 +264,6 @@ sub rsync_someplace {
     }
     $success;
 }
-
 
 # Preparations done; sleeves up!
 
@@ -303,8 +305,24 @@ map {
 	    debug_print "REACHABLE: $reachable{$_}\n";
 	    if ($reachable{$_}) {
 		my %old_finished = safe_read $finished_name;
+
+		if (-f $rsync_log_name) { 
+		    my @rsync_log = read_list $rsync_log_name;
+		    foreach (@rsync_log) {
+			my ($file_length, $modification_time, $filename) = /[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)/;
+			if ($filename) {
+			    $old_finished{$filename . "\n"} = "### " . $modification_time . " " . $file_length . "\n";
+			}
+		    }
+		    debug_print "OLD_FINISHED";
+		    debug_print %old_finished;
+		    safe_write $finished_name, sort_hash %old_finished;
+#		    unlink $rsync_log_name unless $debug;
+		    debug_print "#######################################################################\n";
+		}
+
 		my %finished = ();
-		# Delete from %finished what has to be re-rsynced.
+		# Delete from %old_finished what has to be re-rsynced.
 		foreach (@rsync_ls) {
 		    my ($ls_size, $ls_modification_date, $ls_modification_time, $ls_filename) = /[drwx-]+\s+(\d+) ([\d\/]+) ([\d:]+) (.*)/;
 		    if ($ls_filename && exists $old_finished{$ls_filename . "\n"}) {
@@ -322,19 +340,8 @@ map {
 		debug_print %finished;
 
 		safe_write $finished_name, %finished;
-		if (rsync_someplace $_, @destination_roots) { 
-		    my @rsync_log = read_list $rsync_log_name;
-		    foreach (@rsync_log) {
-			my ($file_length, $modification_time, $filename) = /[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)/;
-			if ($filename) {
-			    $finished{$filename . "\n"} = "### " . $modification_time . " " . $file_length . "\n";
-			}
-		    }
-		    debug_print "FINISHED_AFTER_RSYNC";
-		    debug_print %finished;
-		    safe_write $finished_name, sort_hash %finished;
-		    unlink $rsync_log_name unless $debug;
-		    debug_print "#######################################################################\n";
+		if (rsync_someplace $_, @destination_roots) {
+		    $progress_ratios{$_} = '0'; # Clean staleness for UI
 		}
 		sleep $coffee_break;
 	    }
@@ -433,13 +440,17 @@ if ($debug == 1) {
 	$window_right->attron($MAGENTA);
 	map {
 	    my $source = $_;
+	    my $current_destination = '?';
+	    if (exists $destination_source_is_writing_to{$source}) {
+		$current_destination = $destination_source_is_writing_to{$source};
+	    }
 	    if ($reachable{$source}) { 
 		$window_right->addstr($line_number, 1,
 				      sprintf($sources_format,
 					      substr($source_roots{$source}, 0, 17),
 					      substr($speeds{$source}, 0, 11),
 					      substr($progress_ratios{$source}, -6, 6),
-					      substr($destination_source_is_writing_to{$source}, -13, 13)));
+					      substr($current_destination, -13, 13)));
 		++ $line_number;
 	    }
 	    $window_right->addstr($line_number, 1,
@@ -477,7 +488,7 @@ map {
 
 map {
     $rsync_worker_thread{$_}->join if $rsync_worker_thread{$_};
-} @source_roots;
+} keys %source_roots;
 
 
 __END__
