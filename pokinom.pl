@@ -23,21 +23,29 @@ my $debug = 0; # 0 = clean UI; 1 = lots of scrolling junk; anything else = both 
 
 # Possible mount points. Must be unique in their tails after rightmost /.
 @possible_mount_points = ('/root/tt6', '/root/tt7', '/root/tt8');
-# Directory where new data is in.
+
+# Directory relative to a mount point where new data resides.
 $path_under_mount_point = 'measuring_data';
+
 # Directories of this name will be deleted.
 $path_under_mount_point_backed_up = 'backed_up';
+
 # Directory name while being deleted by monikop.
 $path_under_mount_point_being_deleted = 'being_deleted';
+
 # Data sink.
 $destination = 'vvastr164::ftp/NEW_DATA';
+
 # Rsync credentials.
 $rsync_username = 0;
 $rsync_password = 0;
+
 # Full path to rsync's raw log
 $rsync_log_prefix = '/root/log.';
+
 # Shut down when finished? (default) 0 = no, 1 = yes
 $shut_down_when_finished = 0;
+
 # How to turn off
 $shut_down_action = "touch shut_down_requested";
 
@@ -95,6 +103,7 @@ sub rsync_preparation_form {
 	   '            outfun => $rsync_outfun_', $source, ', ', 
 	   '            progress => 1, debug => 0, verbose => 0, ',
 	   '            literal => [\\\'--recursive\\\', \\\'--times\\\', ',
+	   '                        \\\'--update\\\', ',
 	   '                        \\\'--prune-empty-dirs\\\', ',
 	   '                        \\\'--log-file-format=%i %b %n\\\', ',
 	   '                      , \\\'--log-file=', $rsync_log_prefix, $source, '\\\'] ',
@@ -211,13 +220,10 @@ if ($debug == 1) {
 	    $window_top->attroff($CYAN);
 	} sort (keys %source_roots);
 	$line_number = 0;
-#	$window_center->attron(A_BOLD);
 	map {
 	    $window_center->addstr($line_number, 2, $_);
 	    ++ $line_number;
 	} @pokinom_banner;
-#	$window_center->attroff(A_BOLD);
-
 	$window_bottom->box(0,0);
 	$window_bottom->attron(A_BOLD);
 	$window_bottom->addstr(1, 3,

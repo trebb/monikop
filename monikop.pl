@@ -6,29 +6,33 @@ use integer;
 use Data::Dumper;
 use File::Rsync;
 use Thread 'async';
-#use threads;
 use threads::shared;
 use Curses;
 
 my @monikop_banner = (
-    "    _/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/_/_/   ", 
-    "   _/_/  _/_/  _/    _/  _/_/    _/    _/    _/  _/    _/    _/  _/    _/  ",
-    "  _/  _/  _/  _/    _/  _/  _/  _/    _/    _/_/      _/    _/  _/_/_/     ", 
-    " _/      _/  _/    _/  _/    _/_/    _/    _/  _/    _/    _/  _/          ", 
-    "_/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/           "
+    "    _/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/_/_/ ", 
+    "   _/_/  _/_/  _/    _/  _/_/    _/    _/    _/  _/    _/    _/  _/    _/",
+    "  _/  _/  _/  _/    _/  _/  _/  _/    _/    _/_/      _/    _/  _/_/_/   ", 
+    " _/      _/  _/    _/  _/    _/_/    _/    _/  _/    _/    _/  _/        ", 
+    "_/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/         "
     );
 	
 ########################################
 # Global defaults
 ########################################
-# Possible data sources, and how to represent them in destination.
+# Possible data sources, and by what directory name to represent them in
+# destination.
+# When the latter is not unique, care must be taken that all pathnames in the 
+# respective sources are unique.
 %sources = (
     'tt11/log' => '11',
     'tt10/log' => '10',
     'tt9/log' => '9',
     'vvastr164::ftp' => '164',
+    'vvastr164::ftp1' => '164-1',
     'lsstr174::rsynctest' => '174',
     );
+
 # Possible mount points of data destinations. Must be unique.
 @usable_mount_points = (
     '/root/tt6',
@@ -36,59 +40,69 @@ my @monikop_banner = (
     '/root/tt8',
     '/blah',
     );
-# Directory (under a mount point) to put new data in.
+
+# Common directory (under a mount point) to put new data in:
 $path_in_destination =
     'measuring_data';
-# A directory (under a mount point) of this name will be deleted.
+
+# Directories (under any mount point) of this name will be deleted:
 $path_in_destination_backed_up =
     'backed_up';
-# Directory name (under a mount point) while being deleted.
+
+# Directory name (under a mount point) while being deleted:
 $path_in_destination_being_deleted =
     'being_deleted';
-### Prefix of the directory name inside $path_in_destination where rsync stores 
-### unfinished files.
-##$rsync_tempdir_prefix = '.rsync_temp.';
-# Full path to rsync's raw log
+
+# Path and file name prefix of rsync's raw logs:
 $rsync_log_prefix =
     '/root/log.';
-# Full path to list of successfully rsynced files.
+
+# Path and file name prefix of the list of successfully rsynced files:
 $finished_prefix =
     '/root/finished.'; 
-# How to name the duplicate of a safe file.
+
+# How to suffix the name of the duplicate of a safe file:
 $safe_file_backup_suffix =
     '.bak'; 
-# Name of a safe file wannabe.
+
+# How to suffix the name of an unfinished safe file:
 $safe_file_unfinished_suffix =
     '.unfinished'; 
-# What to do (shutdown) when F3 has been pressed
+
+# What to do (shutdown) when F3 has been pressed:
 $key_f3_action =
     "touch f3_pressed";
-# What to do (reboot) when F6 has been pressed
+
+# What to do (reboot) when F6 has been pressed:
 $key_f6_action =
     "touch f6_pressed";
-# Rsyncs time (in seconds) to wait for a response.
+
+# Rsyncs time (in seconds) to wait for a response:
 my $rsync_timeout = 30;
+
+# Rsyncs directory (relative to destination) for partially transferred files:
+my $rsync_partial_dir_name = '.rsync_partial';
+
 # Local changes to the above.
 ### do "monikop.config";
 
-my $debug = 0; # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
-# Time in seconds before rsync gets restarted.
+# 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
+my $debug = 0; 
+
+# Time in seconds before rsync is restarted and user information is recalculated:
 $coffee_break = 10;
 
-# Places for running rsyncs to put their runtime info in
-my %speeds :shared;
-my %progress_ratios :shared;
-# Other run-time information
-my %destination_usages :shared;
+# Places to store run-time information to share between threads:
+my %speeds :shared; # rsync output
+my %progress_ratios :shared; # rsync output
+my %destination_usages :shared; # i.e. used/unused
 my %destination_usage_ratios :shared;
 my %destination_source_is_writing_to :shared;
 my %reachable :shared;
 
-my %source_roots;
-
 sub debug_print { if ($debug) { print @_; } };
 
-# Return the hash referenced by argument, which is sorted if accessed as an array.
+# Return the hash referenced by argument, which is sorted if accessed as an array:
 sub sort_hash {
     %hash_table = @_;
     my @sorted_hash = ();
@@ -98,6 +112,7 @@ sub sort_hash {
     @sorted_hash;
 }
 
+# Turn a path into a legal perl identifier:
 sub make_key_from_path {
     my $path = shift;
     ($path) =~ s/\/?(.*)\/?/$1/g;
@@ -105,6 +120,7 @@ sub make_key_from_path {
     $path;
 }
 
+my %source_roots;
 map {
     $source_roots{make_key_from_path $_} = $_
 } keys %sources;
@@ -122,7 +138,7 @@ sub normalize_date {
 }
 
 # Return sorted intersection of arrays which are supposed to have unique
-# elements.
+# elements:
 sub intersection {
     my @intersection = ();
     my %count = ();
@@ -135,22 +151,23 @@ sub intersection {
 }
 
 # Write @content to a file with name $filename or a name starting with $filename
-# and ending with $safe_file_backup_suffix. Leave at least one such file, even if interrupted.
+# and ending with $safe_file_backup_suffix. Leave at least one such file, even
+# if interrupted.
 sub safe_write {
     my ($filename, @content) = @_;
     my $filename_a = $filename;
     my $filename_b = $filename . $safe_file_backup_suffix;
     my $filename_unfinished = $filename . $safe_file_unfinished_suffix;
     local (*FILE_UNFINISHED);
-    open FILE_UNFINISHED, '>', $filename_unfinished or die "[" . $$ . "] open $filename_unfinished failed: $!\n";
-#    grep {$_ = $_ . "\n";} @content;
+    open FILE_UNFINISHED, '>', $filename_unfinished
+	or die "[" . $$ . "] open $filename_unfinished failed: $!\n";
     print FILE_UNFINISHED @content;
     close FILE_UNFINISHED;
     qx(cp $filename_unfinished $filename_b);
     qx(mv $filename_unfinished $filename_a);
 }
 
-# Put contents of $filename into an array.
+# Put contents of $filename into an array:
 sub read_list {
     my ($filename) = @_;
     local (*FILE);
@@ -160,6 +177,7 @@ sub read_list {
     @value;
 }
 
+# Read a file written by safe_write
 sub safe_read {
     my ($filename) = @_;
     my $filename_a = $filename;
@@ -205,11 +223,14 @@ sub rsync_preparation_form {
 	   '    	filter => [\\\'merge,- ', $finished_prefix, $source, '\\\'], ',
 	   '            literal => [',
 	   '                        \\\'--recursive\\\', \\\'--times\\\', ',
+	   '                        \\\'--partial-dir=', $rsync_partial_dir_name, '\\\', ',
 	   '                        \\\'--timeout=', $rsync_timeout, '\\\', ',
 	   '                        \\\'--prune-empty-dirs\\\', ',
 	   '                        \\\'--log-file-format=%i %b %l %M %n\\\', ',
-	                    join (', ', map { '\\\'--compare-dest=' .  $_ . '/' . $path_in_destination . '/' . $source_dirs_in_destination{$source} . '/\\\'' }
-	        		      ( @destination_roots )),
+	                    join (', ', map { '\\\'--compare-dest=' .  $_ . '/'
+						  . $path_in_destination . '/'
+						  . $source_dirs_in_destination{$source} . '/\\\'' }
+				  ( @destination_roots )),
 	   '                      , \\\'--log-file=', $rsync_log_prefix, $source, '\\\'] ',
 	   '        }',
 	   '    );\' ',
@@ -241,18 +262,20 @@ sub act_on_keypress {
     elsif ($pressed_key eq 270) { qx($key_f6_action); }
 }
 
-# Run rsync for one $source, try all destinations
+# Run rsync for one $source, try all destinations:
 sub rsync_someplace {
     my ($source, @destinations) = @_;
     my $success;
 
     my $rsync_log_name = $rsync_log_prefix . $source;
     my $finished_name = $finished_prefix . $source;
-
     foreach (@destinations) {
 	$destination_source_is_writing_to{$source} = $_;
-	my $complete_destination = $_ . '/' . $path_in_destination . '/' . $source_dirs_in_destination{$source};
-	qx(mkdir -p $complete_destination);
+	my $common_destination = $_ . '/' . $path_in_destination;
+	my $complete_destination = $common_destination . '/'
+	    . $source_dirs_in_destination{$source};
+	qx(mkdir -p $common_destination);
+	if ($?) { die "Fatal: $common_destination is not writable."}
 	if (eval ($rsync_exec_form{$source} ($complete_destination))) {
 	    debug_print "EVAL RSYNC_EXEC_FORM (successful) $source, $complete_destination: $@ \n";
 	    $success = 1;
@@ -267,14 +290,14 @@ sub rsync_someplace {
 
 # Preparations done; sleeves up!
 
-# Find usable destinations
+# Find usable destinations:
 @raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
 chomp @raw_mount_points;
 @destination_roots = intersection @raw_mount_points, @usable_mount_points;
 debug_print "DESTINATION_ROOTS:\n";
 debug_print @destination_roots;
 
-# Clean up destinations
+# Clean up destinations:
 map {
     my $p_i_d = $_ . '/' . $path_in_destination;
     my $p_i_d_backed_up =  $_ . '/' . $path_in_destination_backed_up;
@@ -289,7 +312,8 @@ map {
 
 # Set up and start things per source_root:
 map {
-    push (@destination_roots, shift (@destination_roots)); # rotate for crude load balancing
+    # rotate for crude load balancing:
+    push (@destination_roots, shift (@destination_roots)); 
     $progress_ratios{$_} = "?"; # Initialize for UI
     $rsync_worker_thread{$_} = async {
 	while (1) {
@@ -305,40 +329,38 @@ map {
 	    debug_print "REACHABLE: $reachable{$_}\n";
 	    if ($reachable{$_}) {
 		my %old_finished = safe_read $finished_name;
-
 		if (-f $rsync_log_name) { 
 		    my @rsync_log = read_list $rsync_log_name;
 		    foreach (@rsync_log) {
-			my ($file_length, $modification_time, $filename) = /[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)/;
+			my ($file_length, $modification_time, $filename) =
+			    /[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)$/;
 			if ($filename) {
-			    $old_finished{$filename . "\n"} = "### " . $modification_time . " " . $file_length . "\n";
+			    $old_finished{$filename . "\n"} =
+				"### " . $modification_time . " " . $file_length . "\n";
 			}
 		    }
-		    debug_print "OLD_FINISHED";
-		    debug_print %old_finished;
 		    safe_write $finished_name, sort_hash %old_finished;
-#		    unlink $rsync_log_name unless $debug;
-		    debug_print "#######################################################################\n";
+		    unlink $rsync_log_name unless $debug;
 		}
-
 		my %finished = ();
 		# Delete from %old_finished what has to be re-rsynced.
 		foreach (@rsync_ls) {
-		    my ($ls_size, $ls_modification_date, $ls_modification_time, $ls_filename) = /[drwx-]+\s+(\d+) ([\d\/]+) ([\d:]+) (.*)/;
+		    my ($ls_size, $ls_modification_date,
+			$ls_modification_time, $ls_filename) =
+			    /[drwx-]+\s+(\d+) ([\d\/]+) ([\d:]+) (.*)/;
 		    if ($ls_filename && exists $old_finished{$ls_filename . "\n"}) {
-			my ($finished_modification_date, $finished_size) = $old_finished{$ls_filename . "\n"} =~ /### (\S+) (\d+)$/;
-			debug_print "FD:$finished_modification_date FS:$finished_size LD:$ls_modification_date LT:$ls_modification_time N:$ls_filename\n";
+			my ($finished_modification_date, $finished_size) =
+			    $old_finished{$ls_filename . "\n"} =~ /### (\S+) (\d+)$/;
 			if ( ($finished_size eq $ls_size)
 			     && (normalize_date ($finished_modification_date)
-				 eq normalize_date ($ls_modification_date, $ls_modification_time)) )
+				 eq normalize_date ($ls_modification_date,
+						    $ls_modification_time)) )
 			{
-			    $finished{$ls_filename . "\n"} = $old_finished{$ls_filename . "\n"};
+			    $finished{$ls_filename . "\n"} =
+				$old_finished{$ls_filename . "\n"};
 			}
 		    }
 		}
-		debug_print "FINISHED_BEFORE_RSYNC";
-		debug_print %finished;
-
 		safe_write $finished_name, %finished;
 		if (rsync_someplace $_, @destination_roots) {
 		    $progress_ratios{$_} = '0'; # Clean staleness for UI
@@ -353,10 +375,19 @@ map {
 my $destinations_monitor_thread = async {
     while () {
 	map {
-	    my $complete_destination = $_ . '/' . $path_in_destination;
-	    qx(ls $complete_destination/* &> /dev/null);
-	    $destination_usages{$_} = $? ? 0 : 1; # 0 = no new data
-	    my @destination_usage_ratio = grep s/\S+\s+\S+\s+\S+\s+\S+\s+(\d*)%\s+\S+/$1/, qx(df $_);
+	    my $destination_root = $_;
+	    my $destination_usage = 0;
+	    map {
+		my $source_root = $_;
+		my $complete_destination = $destination_root . '/'
+		    . $path_in_destination . '/'
+		    . $source_dirs_in_destination{$source_root};
+		my @dir = qx(ls -A $complete_destination/ 2> /dev/null);
+		$destination_usage = 1 if scalar @dir; # 0 = no new data
+	    } keys %source_roots;
+	    $destination_usages{$destination_root} = $destination_usage;
+	    my @destination_usage_ratio =
+		grep s/\S+\s+\S+\s+\S+\s+\S+\s+(\d*)%\s+\S+/$1/, qx(df $_);
 	    chomp @destination_usage_ratio;
 	    ($destination_usage_ratios{$_}) = @destination_usage_ratio;
 	} @destination_roots;
@@ -490,5 +521,6 @@ map {
     $rsync_worker_thread{$_}->join if $rsync_worker_thread{$_};
 } keys %source_roots;
 
+$destinations_monitor_thread->join if $destinatios_monitor_thread;
 
 __END__
