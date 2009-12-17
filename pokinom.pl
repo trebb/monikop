@@ -1,5 +1,5 @@
 #! /usr/bin/perl
-use strict;
+#use strict;
 use warnings;
 #use diagnostics;
 use Data::Dumper;
@@ -19,44 +19,75 @@ my @pokinom_banner = (
 ########################################
 # Global defaults
 ########################################
-my $debug = 0; # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
-
 # Possible mount points. Must be unique in their tails after rightmost /.
-@possible_mount_points = ('/root/tt6', '/root/tt7', '/root/tt8');
+my @possible_mount_points = (
+    '/root/tt6',
+    '/root/tt7',
+    '/root/tt8',
+    );
 
 # Directory relative to a mount point where new data resides.
-$path_under_mount_point = 'measuring_data';
+my $path_under_mount_point =
+    'measuring_data';
 
 # Directories of this name will be deleted.
-$path_under_mount_point_backed_up = 'backed_up';
+my $path_under_mount_point_backed_up =
+    'backed_up'
+    ;
 
 # Directory name while being deleted by monikop.
-$path_under_mount_point_being_deleted = 'being_deleted';
+my $path_under_mount_point_being_deleted =
+    'being_deleted'
+    ;
 
 # Data sink.
-$destination = 'vvastr164::ftp/NEW_DATA';
+my $destination =
+    'vvastr164::ftp-incoming/NEW_DATA';
 
-# Rsync credentials.
-$rsync_username = 0;
-$rsync_password = 0;
+# Rsync credentials. String, or 0 if not used.
+my $rsync_username =
+    0
+    ;
+my $rsync_password =
+    0
+    ;
 
 # Full path to rsync's raw log
-$rsync_log_prefix = '/root/log.';
+my $rsync_log_prefix =
+    '/root/log.'
+    ;
 
-# Shut down when finished? (default) 0 = no, 1 = yes
-$shut_down_when_finished = 0;
+# Full path to a file to store list of rsync's incompletely transferred files in:
+my $interrupted_prefix =
+    '/root/interrupted.'
+    ;
+
+# Shut down when finished? (default); 1 = yes; 2 = stay on.
+my $shut_down_when_done :shared =
+    0
+    ;
 
 # How to turn off
-$shut_down_action = "touch shut_down_requested";
+my $shut_down_action =
+    "touch shut_down_requested"
+    ;
+
+# Rsync's directory (relative to destination) for partially transferred files:
+my $rsync_partial_dir_name =
+    '.rsync_partial'
+    ;
 
 # Local changes to the above.
 do "pokinom.config";
+
+# 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
+my $debug = 0; 
 
 # Places for running rsyncs to put their runtime info in
 my %speeds :shared;
 my %progress_ratios :shared;
 my %done :shared;
-my $shut_down_when_done :shared = $shut_down_when_finished;
+#my $shut_down_when_done :shared = $shut_down_when_finished;
 
 sub debug_print { if ($debug) { print @_; } };
 
@@ -73,8 +104,20 @@ sub intersection {
     sort @intersection;
 }
 
+# Write @content to a file with name $filename.
+sub write_list {
+    my ($filename, @content) = @_;
+    open FILE, '>', $filename
+	or die "[" . $$ . "] open $filename failed: $!\n";
+    print FILE @content;
+    close FILE;
+}
+
+my %source_roots;
+
 sub rsync_preparation_form {
     my ($source) = @_;
+    $speeds{$source} = "-";
     join ( '',
 	   "\n",
 ##########  Capture rsync's status messages for usage by a GUI
@@ -85,7 +128,7 @@ sub rsync_preparation_form {
 	   '    if ($speed and $outputchannel eq \'out\') {',
 	   '        $speeds{\'', $source, '\'} = $speed;',
 	   '    } else {',
-	   '        $speeds{\'', $source, '\'} = " -";',
+	   '        $speeds{\'', $source, '\'} = "-";',
 	   '    };',
 	   '    if ($progress_ratio and $outputchannel eq \'out\') {',
 	   '        $progress_ratios{\'', $source, '\'} = $progress_ratio;',
@@ -102,7 +145,9 @@ sub rsync_preparation_form {
 	   '            dest => \\\'' . $destination . '/\\\', ',
 	   '            outfun => $rsync_outfun_', $source, ', ', 
 	   '            progress => 1, debug => 0, verbose => 0, ',
+	   '    	filter => [\\\'merge,- ', $interrupted_prefix, $source, '\\\'], ',
 	   '            literal => [\\\'--recursive\\\', \\\'--times\\\', ',
+	   '                        \\\'--partial-dir=', $rsync_partial_dir_name, '\\\', ',
 	   '                        \\\'--update\\\', ',
 	   '                        \\\'--prune-empty-dirs\\\', ',
 	   '                        \\\'--log-file-format=%i %b %n\\\', ',
@@ -126,16 +171,25 @@ $ENV{RSYNC_PASSWORD} = $rsync_password if ($rsync_password);
 # Preparations done; sleeves up!
 
 # Find usable (i.e. mounted) sources
-@raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
+my @raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
 chomp @raw_mount_points;
-@source_roots = intersection @raw_mount_points, @possible_mount_points;
-debug_print "SOURCE_ROOTS:\n";
-debug_print @source_roots;
-# TODO: perhaps use whole string for key
-grep {
-    my $key = $_; $key =~ s/\S+(\/|:|::)(\w+)$/$2/; $source_roots{$key} = $_
-} @source_roots;
-print %source_roots;
+my @sources = intersection @raw_mount_points, @possible_mount_points;
+debug_print "SOURCES:\n";
+debug_print @sources;
+
+# Turn a path into a legal perl identifier:
+sub make_key_from_path {
+    my $path = shift;
+    ($path) =~ s/\/?(.*)\/?/$1/g;
+    ($path) =~ s/\W/_/g;
+    $path;
+}
+
+map {
+    $source_roots{make_key_from_path $_} = $_
+} @sources;
+
+my %being_deleted_thread;
 # Clean up sources if necessary
 map {
     my $p_i_d = $source_roots{$_} . '/' . $path_under_mount_point;
@@ -143,6 +197,8 @@ map {
     $being_deleted_thread{$_} = async { qx(rm -rf $p_i_d_being_deleted 2> /dev/null); };
 } keys %source_roots;
 
+my %rsync_worker_thread;
+my %rsync_exec_form;
 # Set up and start things per source_root:
 map {
     $progress_ratios{$_} = "?"; # Initialize for UI
@@ -154,6 +210,12 @@ map {
 	debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
 	my $complete_source = $source_roots{$_} . '/' . $path_under_mount_point;
 	my $complete_source_backed_up = $source_roots{$_} . '/' . $path_under_mount_point_backed_up;
+	my @interrupted = qx((cd $complete_source 2> /dev/null && find ./ -path *$rsync_partial_dir_name/*));
+	# Write exclusion list: don't transfer files Monikop gave up upon.
+	grep s/\.(.*\/)$rsync_partial_dir_name\/(.*)/$1$2/, @interrupted;
+	write_list $interrupted_prefix . $_, @interrupted;
+	debug_print "INTERRUPTED";
+	debug_print @interrupted;
 	if (-d $complete_source) {
 	    if (eval ($rsync_exec_form{$_}() )) {
 		debug_print "EVAL RSYNC_EXEC_FORM (successful) $complete_source: $@ \n";
@@ -165,7 +227,10 @@ map {
 	$progress_ratios{$_} = "Done";
 	$speeds{$_} = "-";
 	$done{$_} = 1;
-	unlink $rsync_log_name unless $debug;
+	unless ($debug) {
+	    unlink $rsync_log_name;
+	    unlink $interrupted_prefix . $_;
+	}
     }
 } keys %source_roots;
 
@@ -181,8 +246,8 @@ if ($debug == 1) {
     my $window_top = newwin(LINES() - 8, 79, 0, 0);
     my $window_center = newwin(5, 79, LINES() - 8, 0);
     my $window_bottom = newwin(3, 79, LINES() - 3, 0);
-    my $window_bottom->keypad(1);
-    my $window_bottom->nodelay(1);
+    $window_bottom->keypad(1);
+    $window_bottom->nodelay(1);
     start_color;
     init_pair 1, COLOR_MAGENTA, COLOR_BLACK;
     init_pair 2, COLOR_RED, COLOR_BLACK;
@@ -203,14 +268,14 @@ if ($debug == 1) {
 			      sprintf ($sources_format,
 				       "Source Medium", "Speed", "To Do"));
 	$window_top->attroff(A_BOLD);
-	$line_number = 2;
+	my $line_number = 2;
 	map {
 	    my $source = $_;
 	    $window_top->attron($CYAN);
 	    $window_top->attron($RED) if $done{$source};
 	    $window_top->addstr($line_number, 12,
 				  sprintf($sources_format,
-					  substr($source . $source_roots{$source}, 0, 24),
+					  substr($source_roots{$source}, 0, 24),
 					  substr($speeds{$source}, 0, 17),
 					  substr($progress_ratios{$source}, -8, 8)));
 	    ++ $line_number;
@@ -224,6 +289,8 @@ if ($debug == 1) {
 	    $window_center->addstr($line_number, 2, $_);
 	    ++ $line_number;
 	} @pokinom_banner;
+	$window_center->move(0, 0);
+
 	$window_bottom->box(0,0);
 	$window_bottom->attron(A_BOLD);
 	$window_bottom->addstr(1, 3,
@@ -233,8 +300,8 @@ if ($debug == 1) {
 	$window_bottom->attroff(A_BOLD);
 
 	$window_top->refresh();
-	$window_center->refresh();
 	$window_bottom->refresh();
+	$window_center->refresh(); # Last window gets the cursor.
 	sleep 2;
 	act_on_keypress($window_bottom->getch());
 	if (! grep(/0/, values %done) && $shut_down_when_done) {
@@ -244,13 +311,12 @@ if ($debug == 1) {
     endwin();
 }
 
-
 # Tidy up. (Except we don't reach this.)
 map {
     $being_deleted_thread{$_}->join if $being_deleted_thread{$_};
-} @source_roots;
+} keys %source_roots;
 
 map {
     $rsync_worker_thread{$_}->join if $rsync_worker_thread{$_};
-} @source_roots;
+} keys %source_roots;
 

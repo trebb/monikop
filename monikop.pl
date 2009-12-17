@@ -25,17 +25,17 @@ my @monikop_banner = (
 # When the latter is not unique, care must be taken that all pathnames in the 
 # respective sources are unique.
 %sources = (
+#    'tt9/log' => '9',
+#    'tt10/log' => '10',
     'tt11/log' => '11',
-    'tt10/log' => '10',
-    'tt9/log' => '9',
-    'vvastr164::ftp' => '164',
+#    'vvastr164::ftp' => '164',
     'vvastr164::ftp1' => '164-1',
     'lsstr174::rsynctest' => '174',
     );
 
 # Possible mount points of data destinations. Must be unique.
 @usable_mount_points = (
-    '/root/tt6',
+#    '/root/tt6',
     '/root/tt7',
     '/root/tt8',
     '/blah',
@@ -43,45 +43,58 @@ my @monikop_banner = (
 
 # Common directory (under a mount point) to put new data in:
 $path_in_destination =
-    'measuring_data';
+    'measuring_data'
+    ;
 
 # Directories (under any mount point) of this name will be deleted:
 $path_in_destination_backed_up =
-    'backed_up';
+    'backed_up'
+    ;
 
 # Directory name (under a mount point) while being deleted:
 $path_in_destination_being_deleted =
-    'being_deleted';
+    'being_deleted'
+    ;
 
 # Path and file name prefix of rsync's raw logs:
 $rsync_log_prefix =
-    '/root/log.';
+    '/root/log.'
+    ;
 
 # Path and file name prefix of the list of successfully rsynced files:
 $finished_prefix =
-    '/root/finished.'; 
+    '/root/finished.'
+    ; 
 
 # How to suffix the name of the duplicate of a safe file:
 $safe_file_backup_suffix =
-    '.bak'; 
+    '.bak'
+    ; 
 
 # How to suffix the name of an unfinished safe file:
 $safe_file_unfinished_suffix =
-    '.unfinished'; 
+    '.unfinished'
+    ; 
 
 # What to do (shutdown) when F3 has been pressed:
 $key_f3_action =
-    "touch f3_pressed";
+    "touch f3_pressed"
+    ;
 
 # What to do (reboot) when F6 has been pressed:
 $key_f6_action =
-    "touch f6_pressed";
+    "touch f6_pressed"
+    ;
 
 # Rsyncs time (in seconds) to wait for a response:
-my $rsync_timeout = 30;
+my $rsync_timeout =
+    30
+    ;
 
 # Rsyncs directory (relative to destination) for partially transferred files:
-my $rsync_partial_dir_name = '.rsync_partial';
+my $rsync_partial_dir_name =
+    '.rsync_partial'
+    ;
 
 # Local changes to the above.
 ### do "monikop.config";
