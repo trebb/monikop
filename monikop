@@ -1,7 +1,6 @@
 #! /usr/bin/perl
-#use strict;
+use strict;
 use warnings;
-#use diagnostics;
 use integer;
 use Data::Dumper;
 use File::Rsync;
@@ -24,17 +23,17 @@ my @monikop_banner = (
 # destination.
 # When the latter is not unique, care must be taken that all pathnames in the 
 # respective sources are unique.
-%sources = (
+my %sources = (
     'vvastr164::ftp' => '164',
     'vvastr164::ftp1' => '164-1',
     'lsstr174::rsynctest' => '174',
     'tt9/log' => '9',
-#    'tt10/log' => '10',
+    'tt10/log' => '10',
 #    'tt11/log' => '11',
     );
 
 # Possible mount points of data destinations. Must be unique.
-@usable_mount_points = (
+my @usable_mount_points = (
     '/root/tt6',
     '/root/tt7',
     '/root/tt8',
@@ -43,49 +42,49 @@ my @monikop_banner = (
 
 # Common directory (under a mount point) to put new data in.
 # Must agree with Pokinom's setting.
-$path_in_destination =
+my $path_in_destination =
     'measuring_data'
     ;
 
 # Directories (under any mount point) of this name will be deleted
 # Must agree with Pokinom's setting.
-$path_in_destination_backed_up =
+my $path_in_destination_backed_up =
     'backed_up'
     ;
 
 # Directory name (under a mount point) while being deleted.
 # Must agree with Pokinom's setting.
-$path_in_destination_being_deleted =
+my $path_in_destination_being_deleted =
     'being_deleted'
     ;
 
 # Path and file name prefix of rsync's raw logs:
-$rsync_log_prefix =
+my $rsync_log_prefix =
     '/root/log.'
     ;
 
 # Path and file name prefix of the list of successfully rsynced files:
-$finished_prefix =
+my $finished_prefix =
     '/root/finished.'
     ; 
 
 # How to suffix the name of the duplicate of a safe file:
-$safe_file_backup_suffix =
+my $safe_file_backup_suffix =
     '.bak'
     ; 
 
 # How to suffix the name of an unfinished safe file:
-$safe_file_unfinished_suffix =
+my $safe_file_unfinished_suffix =
     '.unfinished'
     ; 
 
 # What to do (shutdown) when F3 has been pressed:
-$key_f3_action =
+my $key_f3_action =
     "touch f3_pressed"
     ;
 
 # What to do (reboot) when F6 has been pressed:
-$key_f6_action =
+my $key_f6_action =
     "touch f6_pressed"
     ;
 
@@ -107,7 +106,7 @@ my $rsync_partial_dir_name =
 my $debug = 0; 
 
 # Time in seconds before rsync is restarted and user information is recalculated:
-$coffee_break = 10;
+my $coffee_break = 10;
 
 # Places to store run-time information to share between threads:
 my %speeds :shared; # rsync output
@@ -121,7 +120,7 @@ sub debug_print { if ($debug) { print @_; } };
 
 # Return the hash referenced by argument, which is sorted if accessed as an array:
 sub sort_hash {
-    %hash_table = @_;
+    my %hash_table = @_;
     my @sorted_hash = ();
     foreach my $key (sort keys %hash_table) {
 	push @sorted_hash, $key, $hash_table{$key};
@@ -205,6 +204,14 @@ sub safe_read {
     debug_print "SAFE_READ: $filename";
     read_list $filename;
 }
+
+my @destination_roots;
+my %rsync_worker_thread;
+my %rsync_exec_form;
+my %rsync_dir_exec_form;
+my %rsync_dir_err_form;
+my %being_deleted_thread;
+
 
 sub rsync_preparation_form {
     my ($source) = @_;
@@ -308,7 +315,7 @@ sub rsync_someplace {
 # Preparations done; sleeves up!
 
 # Find usable destinations:
-@raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
+my @raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
 chomp @raw_mount_points;
 @destination_roots = intersection @raw_mount_points, @usable_mount_points;
 debug_print "DESTINATION_ROOTS:\n";
@@ -539,6 +546,6 @@ map {
     $rsync_worker_thread{$_}->join if $rsync_worker_thread{$_};
 } keys %source_roots;
 
-$destinations_monitor_thread->join if $destinatios_monitor_thread;
+$destinations_monitor_thread->join if $destinations_monitor_thread;
 
 __END__
