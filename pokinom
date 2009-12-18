@@ -27,15 +27,18 @@ my @possible_mount_points = (
     );
 
 # Directory relative to a mount point where new data resides.
+# Must agree with Monikop's setting.
 my $path_under_mount_point =
     'measuring_data';
 
 # Directories of this name will be deleted.
+# Must agree with Monikop's setting.
 my $path_under_mount_point_backed_up =
     'backed_up'
     ;
 
 # Directory name while being deleted by monikop.
+# Must agree with Monikop's setting.
 my $path_under_mount_point_being_deleted =
     'being_deleted'
     ;
@@ -44,7 +47,7 @@ my $path_under_mount_point_being_deleted =
 my $destination =
     'vvastr164::ftp-incoming/NEW_DATA';
 
-# Rsync credentials. String, or 0 if not used.
+# Credentials of the remote rsync server. String, or 0 if not used.
 my $rsync_username =
     0
     ;
@@ -72,7 +75,8 @@ my $shut_down_action =
     "touch shut_down_requested"
     ;
 
-# Rsync's directory (relative to destination) for partially transferred files:
+# Rsync's directory (relative to destination) for partially transferred files.
+# Must agree with Monikop's setting.
 my $rsync_partial_dir_name =
     '.rsync_partial'
     ;
@@ -81,7 +85,7 @@ my $rsync_partial_dir_name =
 do "pokinom.config";
 
 # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
-my $debug = 0; 
+my $debug = 0;
 
 # Places for running rsyncs to put their runtime info in
 my %speeds :shared;
@@ -199,7 +203,8 @@ map {
 
 my %rsync_worker_thread;
 my %rsync_exec_form;
-# Set up and start things per source_root:
+
+# Set up and start things per source_root, in parallel:
 map {
     $progress_ratios{$_} = "?"; # Initialize for UI
     $done{$_} = 0;
@@ -219,6 +224,37 @@ map {
 	if (-d $complete_source) {
 	    if (eval ($rsync_exec_form{$_}() )) {
 		debug_print "EVAL RSYNC_EXEC_FORM (successful) $complete_source: $@ \n";
+	    } else {
+		die "EVAL RSYNC_EXEC_FORM (failed) $complete_source: $@ \n";
+	    }
+	}
+	$progress_ratios{$_} = "Wait";
+	$speeds{$_} = "-";
+    }
+} keys %source_roots;
+
+# Repeat rsync runs, this time sequentially, in order to get the newest of a file 
+# which may exist in multiple versions on different sources:
+my $rsync_worker_thread = async {
+    map {
+	$rsync_worker_thread{$_}->join;
+	debug_print "JOINED $_\n";
+    } keys %source_roots;
+    map {
+	$progress_ratios{$_} = "?"; # Initialize for UI
+	$done{$_} = 0;
+	my $rsync_log_name = $rsync_log_prefix . $_;
+	eval rsync_preparation_form $_;
+	debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
+	my $complete_source = $source_roots{$_} . '/' . $path_under_mount_point;
+	my $complete_source_backed_up = $source_roots{$_} . '/' . $path_under_mount_point_backed_up;
+	my @interrupted = qx((cd $complete_source 2> /dev/null && find ./ -path *$rsync_partial_dir_name/*));
+	# Write exclusion list: don't transfer files Monikop gave up upon.
+	grep s/\.(.*\/)$rsync_partial_dir_name\/(.*)/$1$2/, @interrupted;
+	write_list $interrupted_prefix . $_, @interrupted;
+	if (-d $complete_source) {
+	    if (eval ($rsync_exec_form{$_}() )) {
+		debug_print "EVAL RSYNC_EXEC_FORM (successful) $complete_source: $@ \n";
 		qx(mv $complete_source $complete_source_backed_up);
 	    } else {
 		die "EVAL RSYNC_EXEC_FORM (failed) $complete_source: $@ \n";
@@ -231,8 +267,8 @@ map {
 	    unlink $rsync_log_name;
 	    unlink $interrupted_prefix . $_;
 	}
-    }
-} keys %source_roots;
+    } keys %source_roots;
+};
 
 if ($debug == 1) {
 # Let the workers toil.
@@ -265,8 +301,8 @@ if ($debug == 1) {
 	my $sources_format = "%-25s%-18s%-8s";
 	$window_top->attron(A_BOLD);
 	$window_top->addstr(1, 12,
-			      sprintf ($sources_format,
-				       "Source Medium", "Speed", "To Do"));
+			    sprintf ($sources_format,
+				     "Source Medium", "Speed", "To Do"));
 	$window_top->attroff(A_BOLD);
 	my $line_number = 2;
 	map {
@@ -274,13 +310,13 @@ if ($debug == 1) {
 	    $window_top->attron($CYAN);
 	    $window_top->attron($RED) if $done{$source};
 	    $window_top->addstr($line_number, 12,
-				  sprintf($sources_format,
-					  substr($source_roots{$source}, 0, 24),
-					  substr($speeds{$source}, 0, 17),
-					  substr($progress_ratios{$source}, -8, 8)));
+				sprintf($sources_format,
+					substr($source_roots{$source}, 0, 24),
+					substr($speeds{$source}, 0, 17),
+					substr($progress_ratios{$source}, -8, 8)));
 	    ++ $line_number;
 	    $window_top->addstr($line_number, 1,
-				  sprintf($sources_format, "", "", "", ""));
+				sprintf($sources_format, "", "", "", ""));
 	    $window_top->attroff($RED);
 	    $window_top->attroff($CYAN);
 	} sort (keys %source_roots);
@@ -295,7 +331,7 @@ if ($debug == 1) {
 	$window_bottom->attron(A_BOLD);
 	$window_bottom->addstr(1, 3,
 			       sprintf ("[F3]: Turn off now.%54s",
-			       $shut_down_when_done ? "Turning off when done.  [F9]: Stay on."
+					$shut_down_when_done ? "Turning off when done.  [F9]: Stay on."
 					: "Staying on.  [F9]: Turn off when done."));
 	$window_bottom->attroff(A_BOLD);
 
@@ -316,7 +352,4 @@ map {
     $being_deleted_thread{$_}->join if $being_deleted_thread{$_};
 } keys %source_roots;
 
-map {
-    $rsync_worker_thread{$_}->join if $rsync_worker_thread{$_};
-} keys %source_roots;
-
+$rsync_worker_thread->join if $rsync_worker_thread{$_};

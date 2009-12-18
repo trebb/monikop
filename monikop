@@ -25,33 +25,36 @@ my @monikop_banner = (
 # When the latter is not unique, care must be taken that all pathnames in the 
 # respective sources are unique.
 %sources = (
-#    'tt9/log' => '9',
-#    'tt10/log' => '10',
-    'tt11/log' => '11',
-#    'vvastr164::ftp' => '164',
+    'vvastr164::ftp' => '164',
     'vvastr164::ftp1' => '164-1',
     'lsstr174::rsynctest' => '174',
+    'tt9/log' => '9',
+#    'tt10/log' => '10',
+#    'tt11/log' => '11',
     );
 
 # Possible mount points of data destinations. Must be unique.
 @usable_mount_points = (
-#    '/root/tt6',
+    '/root/tt6',
     '/root/tt7',
     '/root/tt8',
     '/blah',
     );
 
-# Common directory (under a mount point) to put new data in:
+# Common directory (under a mount point) to put new data in.
+# Must agree with Pokinom's setting.
 $path_in_destination =
     'measuring_data'
     ;
 
-# Directories (under any mount point) of this name will be deleted:
+# Directories (under any mount point) of this name will be deleted
+# Must agree with Pokinom's setting.
 $path_in_destination_backed_up =
     'backed_up'
     ;
 
-# Directory name (under a mount point) while being deleted:
+# Directory name (under a mount point) while being deleted.
+# Must agree with Pokinom's setting.
 $path_in_destination_being_deleted =
     'being_deleted'
     ;
@@ -91,7 +94,8 @@ my $rsync_timeout =
     30
     ;
 
-# Rsyncs directory (relative to destination) for partially transferred files:
+# Rsyncs directory (relative to destination) for partially transferred files.
+# Must agree with Pokinom's setting.
 my $rsync_partial_dir_name =
     '.rsync_partial'
     ;
@@ -402,7 +406,8 @@ my $destinations_monitor_thread = async {
 	    my @destination_usage_ratio =
 		grep s/\S+\s+\S+\s+\S+\s+\S+\s+(\d*)%\s+\S+/$1/, qx(df $_);
 	    chomp @destination_usage_ratio;
-	    ($destination_usage_ratios{$_}) = @destination_usage_ratio;
+	    ($destination_usage_ratios{$_}) =
+		@destination_usage_ratio ? @destination_usage_ratio : '?';
 	} @destination_roots;
 	sleep $coffee_break;
     }
