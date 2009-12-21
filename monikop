@@ -13,97 +13,67 @@ my @monikop_banner = (
     "   _/_/  _/_/  _/    _/  _/_/    _/    _/    _/  _/    _/    _/  _/    _/",
     "  _/  _/  _/  _/    _/  _/  _/  _/    _/    _/_/      _/    _/  _/_/_/   ", 
     " _/      _/  _/    _/  _/    _/_/    _/    _/  _/    _/    _/  _/        ", 
-    "_/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/         "
+    "_/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/         ",
     );
 	
+# Debug mode:
+# 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
+my $debug = 0;
+
+# Where to read local configuration:
+my $monikop_config = 'monikop.config';
+
 ########################################
-# Global defaults
+# Settings
 ########################################
 # Possible data sources, and by what directory name to represent them in
 # destination.
 # When the latter is not unique, care must be taken that all pathnames in the 
 # respective sources are unique.
-my %sources = (
-    'vvastr164::ftp' => '164',
-    'vvastr164::ftp1' => '164-1',
-    'lsstr174::rsynctest' => '174',
-    'tt9/log' => '9',
-    'tt10/log' => '10',
-#    'tt11/log' => '11',
-    );
+my %sources;
 
 # Possible mount points of data destinations. Must be unique.
-my @usable_mount_points = (
-    '/root/tt6',
-    '/root/tt7',
-    '/root/tt8',
-    '/blah',
-    );
+my @usable_mount_points;
 
 # Common directory (under a mount point) to put new data in.
 # Must agree with Pokinom's setting.
-my $path_in_destination =
-    'measuring_data'
-    ;
+my $path_in_destination;
 
 # Directories (under any mount point) of this name will be deleted
 # Must agree with Pokinom's setting.
-my $path_in_destination_backed_up =
-    'backed_up'
-    ;
+my $path_in_destination_backed_up;
 
 # Directory name (under a mount point) while being deleted.
 # Must agree with Pokinom's setting.
-my $path_in_destination_being_deleted =
-    'being_deleted'
-    ;
+my $path_in_destination_being_deleted;
 
 # Path and file name prefix of rsync's raw logs:
-my $rsync_log_prefix =
-    '/root/log.'
-    ;
+my $rsync_log_prefix;
 
 # Path and file name prefix of the list of successfully rsynced files:
-my $finished_prefix =
-    '/root/finished.'
-    ; 
+my $finished_prefix;
 
 # How to suffix the name of the duplicate of a safe file:
-my $safe_file_backup_suffix =
-    '.bak'
-    ; 
+my $safe_file_backup_suffix;
 
 # How to suffix the name of an unfinished safe file:
-my $safe_file_unfinished_suffix =
-    '.unfinished'
-    ; 
+my $safe_file_unfinished_suffix;
 
 # What to do (shutdown) when F3 has been pressed:
-my $key_f3_action =
-    "touch f3_pressed"
-    ;
+my $key_f3_action;
 
 # What to do (reboot) when F6 has been pressed:
-my $key_f6_action =
-    "touch f6_pressed"
-    ;
+my $key_f6_action;
 
 # Rsyncs time (in seconds) to wait for a response:
-my $rsync_timeout =
-    30
-    ;
+my $rsync_timeout;
 
 # Rsyncs directory (relative to destination) for partially transferred files.
 # Must agree with Pokinom's setting.
-my $rsync_partial_dir_name =
-    '.rsync_partial'
-    ;
+my $rsync_partial_dir_name;
 
-# Local changes to the above.
-### do "monikop.config";
-
-# 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
-my $debug = 0; 
+# Put actual values into the above.
+eval `cat $monikop_config`;
 
 # Time in seconds before rsync is restarted and user information is recalculated:
 my $coffee_break = 10;
@@ -207,19 +177,21 @@ sub safe_read {
 
 my @destination_roots;
 my %rsync_worker_thread;
+my %rsync_outfun;
+my %rsync;
 my %rsync_exec_form;
+my %rsync_dir;
 my %rsync_dir_exec_form;
 my %rsync_dir_err_form;
 my %being_deleted_thread;
-
 
 sub rsync_preparation_form {
     my ($source) = @_;
     $speeds{$source} = "-";
     join ( '',
 	   "\n",
-##########  Capture rsync's status messages for usage by a GUI
-	   '$rsync_outfun_', $source, ' = sub {',
+##########  Capture rsync's status messages for use by UI
+	   '$rsync_outfun{\'', $source, '\'} = sub {',
 	   '    my ($outline, $outputchannel) = @_ ; ',
 	   '    my ($speed) = $outline =~ /\d+\s+\d+%\s+(\S+)/; ',
 	   '    my ($progress_ratio) = $outline =~ /.+to-check=(\d+\/\d+)\)$/; ',
@@ -234,15 +206,15 @@ sub rsync_preparation_form {
 	   '};',
 	   "\n",
 ##########  Run rsync: main worker
-	   '$rsync_', $source, ' = File::Rsync->new; ',
+	   '$rsync{\'', $source, '\'} = File::Rsync->new; ',
 ##########  Return fodder for another eval
 	   '$rsync_exec_form{\'', $source, '\'} = sub {',
 	   '    my ($complete_destination) = @_;',
-	   '    \'$rsync_', $source, '->exec(',
+	   '    \'$rsync{\\\'', $source, '\\\'}->exec(',
 	   '        {',
 	   '            src => \\\'', $source_roots{$source}, '/\\\', ',
 	   '            dest => \\\'\' . $complete_destination . \'/\\\', ',
-	   '            outfun => $rsync_outfun_', $source, ', ', 
+	   '            outfun => $rsync_outfun{\\\'', $source, '\\\'}, ', 
 	   '            progress => 1, debug => 0, verbose => 0, ',
 	   '    	filter => [\\\'merge,- ', $finished_prefix, $source, '\\\'], ',
 	   '            literal => [',
@@ -261,10 +233,10 @@ sub rsync_preparation_form {
 	   '};',
 	   "\n",
 ##########  Run rsync: get directory from source
-	   '$rsync_dir_', $source, ' = File::Rsync->new; ',
+	   '$rsync_dir{\'', $source, '\'} = File::Rsync->new; ',
 ##########  Return fodder for another eval: dir
 	   '$rsync_dir_exec_form{\'', $source, '\'} = sub {',
-	   '    \'$rsync_dir_', $source, '->list(',
+	   '    \'$rsync_dir{\\\'', $source, '\\\'}->list(',
 	   '        {',
 	   '            src => \\\'', $source_roots{$source}, '/\\\', ',
 	   '            literal => [ \\\'--recursive\\\', ',
@@ -275,7 +247,7 @@ sub rsync_preparation_form {
 	   "\n",
 ##########  Return fodder for another eval: error code from last rsync call
 	   '$rsync_dir_err_form{\'', $source, '\'} = sub {',
-	   '    \'$rsync_dir_', $source, '->err();\' ',
+	   '    \'$rsync_dir{\\\'', $source, '\\\'}->err();\' ',
 	   '}',
 	   "\n"
 	)};

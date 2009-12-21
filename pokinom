@@ -1,5 +1,5 @@
 #! /usr/bin/perl
-# use strict;
+use strict;
 use warnings;
 use Data::Dumper;
 use File::Rsync;
@@ -8,89 +8,68 @@ use threads::shared;
 use Curses;
 
 my @pokinom_banner = (
-    "    _/_/_/      _/_/    _/    _/  _/_/_/  _/      _/    _/_/    _/      _/ ",
-    "   _/    _/  _/    _/  _/  _/      _/    _/_/    _/  _/    _/  _/_/  _/_/  ",  
-    "  _/_/_/    _/    _/  _/_/        _/    _/  _/  _/  _/    _/  _/  _/  _/   ",  
-    " _/        _/    _/  _/  _/      _/    _/    _/_/  _/    _/  _/      _/    ",  
-    "_/          _/_/    _/    _/  _/_/_/  _/      _/    _/_/    _/      _/     "
+    "    _/_/_/      _/_/    _/    _/  _/_/_/  _/      _/    _/_/    _/      _/",
+    "   _/    _/  _/    _/  _/  _/      _/    _/_/    _/  _/    _/  _/_/  _/_/ ",  
+    "  _/_/_/    _/    _/  _/_/        _/    _/  _/  _/  _/    _/  _/  _/  _/  ",  
+    " _/        _/    _/  _/  _/      _/    _/    _/_/  _/    _/  _/      _/   ",  
+    "_/          _/_/    _/    _/  _/_/_/  _/      _/    _/_/    _/      _/    ",
     );
 	
+# Debug mode:
+# 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
+my $debug = 0;
+
+# Where to read local configuration:
+my $pokinom_config = 'pokinom.config';
+
 ########################################
-# Global defaults
+# Settings
 ########################################
 # Possible mount points. Must be unique in their tails after rightmost /.
-my @possible_mount_points = (
-    '/root/tt6',
-    '/root/tt7',
-    '/root/tt8',
-    );
+my @possible_mount_points;
 
 # Directory relative to a mount point where new data resides.
 # Must agree with Monikop's setting.
-my $path_under_mount_point =
-    'measuring_data';
+my $path_under_mount_point;
 
 # Directories of this name will be deleted.
 # Must agree with Monikop's setting.
-my $path_under_mount_point_backed_up =
-    'backed_up'
-    ;
+my $path_under_mount_point_backed_up;
 
 # Directory name while being deleted by monikop.
 # Must agree with Monikop's setting.
-my $path_under_mount_point_being_deleted =
-    'being_deleted'
-    ;
+my $path_under_mount_point_being_deleted;
 
 # Data sink.
-my $destination =
-    'vvastr164::ftp-incoming/NEW_DATA';
+my $destination;
 
 # Credentials of the remote rsync server. String, or 0 if not used.
-my $rsync_username =
-    0
-    ;
-my $rsync_password =
-    0
-    ;
+my $rsync_username;
+my $rsync_password;
 
 # Full path to rsync's raw log
-my $rsync_log_prefix =
-    '/root/log.'
-    ;
+my $rsync_log_prefix;
 
 # Full path to a file to store list of rsync's incompletely transferred files in:
-my $interrupted_prefix =
-    '/root/interrupted.'
-    ;
+my $interrupted_prefix;
 
 # Shut down when finished? (default); 1 = yes; 2 = stay on.
-my $shut_down_when_done :shared =
-    0
-    ;
+my $shut_down_when_done :shared;
 
 # How to turn off
-my $shut_down_action =
-    "touch shut_down_requested"
-    ;
+my $shut_down_action;
 
 # Rsync's directory (relative to destination) for partially transferred files.
 # Must agree with Monikop's setting.
-my $rsync_partial_dir_name =
-    '.rsync_partial'
-    ;
+my $rsync_partial_dir_name;
 
 # Local changes to the above.
-do "pokinom.config";
-
-# 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
-my $debug = 0;
+eval `cat $pokinom_config`;
 
 # Places for running rsyncs to put their runtime info in
 my %speeds :shared;
 my %progress_ratios :shared;
 my %done :shared;
-#my $shut_down_when_done :shared = $shut_down_when_finished;
 
 sub debug_print { if ($debug) { print @_; } };
 
@@ -117,14 +96,16 @@ sub write_list {
 }
 
 my %source_roots;
+my %rsync_outfun;
+my %rsync;
 
 sub rsync_preparation_form {
     my ($source) = @_;
     $speeds{$source} = "-";
     join ( '',
 	   "\n",
-##########  Capture rsync's status messages for usage by a GUI
-	   '$rsync_outfun_', $source, ' = sub {',
+##########  Capture rsync's status messages for use by UI
+	   '$rsync_outfun{\'', $source, '\'} = sub {',
 	   '    my ($outline, $outputchannel) = @_ ; ',
 	   '    my ($speed) = $outline =~ /\d+\s+\d+%\s+(\S+)/; ',
 	   '    my ($progress_ratio) = $outline =~ /.+to-check=(\d+\/\d+)\)$/; ',
@@ -139,14 +120,14 @@ sub rsync_preparation_form {
 	   '};',
 	   "\n",
 ##########  Run rsync
-	   '$rsync_', $source, ' = File::Rsync->new; ',
+	   '$rsync{\'', $source, '\'} = File::Rsync->new; ',
 ##########  Return fodder for another eval
 	   '$rsync_exec_form{\'', $source, '\'} = sub {',
-	   '    \'$rsync_', $source, '->exec(',
+	   '    \'$rsync{\\\'', $source, '\\\'}->exec(',
 	   '        {',
 	   '            src => \\\'', $source_roots{$source}, '/', $path_under_mount_point, '/\\\', ',
 	   '            dest => \\\'' . $destination . '/\\\', ',
-	   '            outfun => $rsync_outfun_', $source, ', ', 
+	   '            outfun => $rsync_outfun{\\\'', $source, '\\\'}, ', 
 	   '            progress => 1, debug => 0, verbose => 0, ',
 	   '    	filter => [\\\'merge,- ', $interrupted_prefix, $source, '\\\'], ',
 	   '            literal => [\\\'--recursive\\\', \\\'--times\\\', ',
