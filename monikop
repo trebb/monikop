@@ -21,7 +21,7 @@ my @monikop_banner = (
 my $debug = 0;
 
 # Where to read local configuration:
-my $monikop_config = 'monikop.config';
+my $monikop_config = '~/monikop/monikop.config';
 
 ########################################
 # Settings

@@ -20,7 +20,7 @@ my @pokinom_banner = (
 my $debug = 0;
 
 # Where to read local configuration:
-my $pokinom_config = 'pokinom.config';
+my $pokinom_config = '~/monikop/pokinom.config';
 
 ########################################
 # Settings
@@ -180,6 +180,10 @@ map {
     my $p_i_d_being_deleted =  $source_roots{$_} . '/' . $path_under_mount_point_being_deleted;
     $being_deleted_thread{$_} = async { qx(rm -rf $p_i_d_being_deleted 2> /dev/null); };
 } keys %source_roots;
+
+# This could be	more sophisticated                                                                            
+print "Waiting for $destination to become reachable.\n";
+sleep 10;
 
 my %rsync_worker_thread;
 my %rsync_exec_form;

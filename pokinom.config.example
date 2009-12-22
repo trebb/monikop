@@ -57,7 +57,7 @@ $shut_down_when_done =
 
 # How to turn off:
 $shut_down_action =
-    "halt"
+    "sudo halt -p"
     ;
 
 # Rsync's directory (relative to destination) for partially transferred files.

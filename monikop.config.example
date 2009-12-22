@@ -63,12 +63,12 @@ $safe_file_unfinished_suffix =
 
 # What to do (shutdown) when F3 has been pressed:
 $key_f3_action =
-    "halt"
+    "sudo halt -p"
     ;
 
 # What to do (reboot) when F6 has been pressed:
 $key_f6_action =
-    "reboot"
+    "sudo reboot"
     ;
 
 # Rsyncs time (in seconds) to wait for a response:
