@@ -1,0 +1,56 @@
+#! /usr/bin/perl
+use strict;
+use warnings;
+
+# Where to read local configuration:
+my $pokinom_config = 'pokinom.config';
+
+########################################
+# Settings
+########################################
+# Possible mount points
+my @possible_mount_points;
+
+# Other settings from $pokinom_config, not used here.
+my $path_under_mount_point;
+my $path_under_mount_point_backed_up;
+my $path_under_mount_point_being_deleted;
+my $destination;
+my $rsync_username;
+my $rsync_password;
+my $rsync_log_prefix;
+my $interrupted_prefix;
+my $shut_down_when_done;
+my $shut_down_action;
+my $rsync_partial_dir_name;
+
+# Local changes to the above.
+eval `cat $pokinom_config`;
+
+# Return sorted intersection of arrays which are supposed to have unique
+# elements.
+sub intersection {
+    my @intersection = ();
+    my %count = ();
+    my $element;
+    foreach $element (@_) { $count{$element}++ }
+    foreach $element (keys %count) {
+	push @intersection, $element if $count{$element} > 1;
+    }
+    sort @intersection;
+}
+
+if (qx(whoami) eq "bertb\n") {
+    qx(killall pokinom &> /dev/null);
+# Find checkable (i.e. mounted) disks
+    my @raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
+    chomp @raw_mount_points;
+    my @sources = intersection @raw_mount_points, @possible_mount_points;
+    print "SOURCES:\n";
+    print @sources;
+    map {
+#        qx(umount /dev/disk/by-label/Platte_* && fsck -fp /dev/disk/by-label/Platte_*);
+    } @sources;
+} else {
+    print "$0: only root can run this.\n";
+}
