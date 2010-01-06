@@ -21,6 +21,9 @@ my $debug = 0;
 
 # Where to read local configuration:
 my $pokinom_config = '~/monikop/pokinom.config';
+if ($ARGV[0]) {
+    $pokinom_config = $ARGV[0]
+}
 
 ########################################
 # Settings

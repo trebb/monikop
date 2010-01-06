@@ -2,11 +2,11 @@
 use strict;
 use warnings;
 use integer;
-use Data::Dumper;
 use File::Rsync;
+use File::Basename;
 use Thread 'async';
 use threads::shared;
-use Curses;
+use Curses; # Debian package libcurses-perl
 
 my @monikop_banner = (
     "    _/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/_/_/ ", 
@@ -19,9 +19,11 @@ my @monikop_banner = (
 # Debug mode:
 # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
 my $debug = 0;
+$debug = $ARGV[1] if $ARGV[1];
 
 # Where to read local configuration:
 my $monikop_config = '~/monikop/monikop.config';
+$monikop_config = $ARGV[0] if $ARGV[0];
 
 ########################################
 # Settings
@@ -285,6 +287,12 @@ sub rsync_someplace {
 }
 
 # Preparations done; sleeves up!
+
+# Make sure we have dirs to put our logs in:
+map {
+    my ($filename, $directory) = fileparse $_;
+    qx(mkdir -p $directory);
+} ( $rsync_log_prefix, $finished_prefix );
 
 # Find usable destinations:
 my @raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
