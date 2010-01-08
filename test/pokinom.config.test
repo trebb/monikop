@@ -1,0 +1,67 @@
+# -*- perl -*-
+##############################################################
+# Settings
+#
+# Copy this file to pokinom.config and adapt it to your needs.
+##############################################################
+# Possible mount points. Must be unique in their tails after rightmost /.
+@possible_mount_points = (
+    '/media/disk_1',
+    '/media/disk_2',
+    '/media/disk_3',
+    );
+
+# Directory relative to a mount point where new data resides.
+# Must agree with Monikop's setting.
+$path_under_mount_point =
+    'measuring_data';
+
+# Directories of this name will be deleted.
+# Must agree with Monikop's setting.
+$path_under_mount_point_backed_up =
+    'backed_up'
+    ;
+
+# Directory name while being deleted by monikop.
+# Must agree with Monikop's setting.
+$path_under_mount_point_being_deleted =
+    'being_deleted'
+    ;
+
+# Data sink.
+$destination =
+    'big-server::incoming/NEW_DATA';
+
+# Credentials of the remote rsync server. String, or 0 if not used.
+$rsync_username =
+    'm-operator'
+    ;
+$rsync_password =
+    'sEcReT'
+    ;
+
+# Full path to rsync's raw log
+$rsync_log_prefix =
+    '/tmp/pokinom/log.'
+    ;
+
+# Full path to a file to store list of rsync's incompletely transferred files in:
+$interrupted_prefix =
+    '/tmp/pokinom/interrupted.'
+    ;
+
+# Shut down when finished? (default); 1 = yes; 2 = stay on.
+$shut_down_when_done =
+    0
+    ;
+
+# How to turn off:
+$shut_down_action =
+    "sudo halt -p"
+    ;
+
+# Rsync's directory (relative to destination) for partially transferred files.
+# Must agree with Monikop's setting.
+$rsync_partial_dir_name =
+    '.rsync_partial'
+    ;

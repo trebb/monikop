@@ -77,7 +77,8 @@ my $rsync_partial_dir_name;
 # Put actual values into the above.
 eval `cat $monikop_config`;
 
-# Time in seconds before rsync is restarted and user information is recalculated:
+# Time in seconds before rsync is restarted and user information is
+# recalculated:
 my $coffee_break = 10;
 
 # Places to store run-time information to share between threads:
@@ -90,7 +91,8 @@ my %reachable :shared;
 
 sub debug_print { if ($debug) { print @_; } };
 
-# Return the hash referenced by argument, which is sorted if accessed as an array:
+# Return the hash referenced by argument, which is sorted if accessed as an
+# array:
 sub sort_hash {
     my %hash_table = @_;
     my @sorted_hash = ();
@@ -138,9 +140,9 @@ sub intersection {
     sort @intersection;
 }
 
-# Write @content to a file with name $filename or a name starting with $filename
-# and ending with $safe_file_backup_suffix. Leave at least one such file, even
-# if interrupted.
+# Write @content to a file with name $filename or a name starting with
+# $filename and ending with $safe_file_backup_suffix. Leave at least one such
+# file, even if interrupted.
 sub safe_write {
     my ($filename, @content) = @_;
     my $filename_a = $filename;
@@ -159,7 +161,8 @@ sub safe_write {
 sub read_list {
     my ($filename) = @_;
     local (*FILE);
-    open FILE, '<', $filename or warn "[" . $$ . "] open $filename failed: $!\n";
+    open FILE, '<', $filename
+        or warn "[" . $$ . "] open $filename failed: $!\n";
     my @value = <FILE>;
     close FILE;
     @value;
@@ -286,6 +289,12 @@ sub rsync_someplace {
     $success;
 }
 
+sub restore_terminal_and_die {
+    endwin(); # Leave a usable terminal.
+    die "Signal $_[0] caught";
+}
+$SIG{TERM} = 'restore_terminal_and_die';
+
 # Preparations done; sleeves up!
 
 # Make sure we have dirs to put our logs in:
@@ -324,10 +333,12 @@ if (scalar @destination_roots) {
 	    while (1) {
 		my $rsync_log_name = $rsync_log_prefix . $_;
 		my $finished_name = $finished_prefix . $_;
-		debug_print 'rsync_preparation_form:' . rsync_preparation_form ($_). "\n";
+		debug_print 'rsync_preparation_form:' .
+                    rsync_preparation_form ($_). "\n";
 		eval rsync_preparation_form $_;
 		debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
-		debug_print 'rsync_dir_exec_form $_:'. $rsync_dir_exec_form{$_} () . "\n";
+		debug_print 'rsync_dir_exec_form $_:'.
+                    $rsync_dir_exec_form{$_} () . "\n";
 		my @rsync_ls = eval $rsync_dir_exec_form{$_}();
 		eval $rsync_dir_err_form{$_}();
 		$reachable{$_} = eval $rsync_dir_err_form{$_}() ? 0 : 1;
@@ -341,7 +352,8 @@ if (scalar @destination_roots) {
 				/[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)$/;
 			    if ($filename) {
 				$old_finished{$filename . "\n"} =
-				    "### " . $modification_time . " " . $file_length . "\n";
+				    "### " . $modification_time . " " .
+                                    $file_length . "\n";
 			    }
 			}
 			safe_write $finished_name, sort_hash %old_finished;
@@ -353,13 +365,17 @@ if (scalar @destination_roots) {
 			my ($ls_size, $ls_modification_date,
 			    $ls_modification_time, $ls_filename) =
 				/[drwx-]+\s+(\d+) ([\d\/]+) ([\d:]+) (.*)/;
-			if ($ls_filename && exists $old_finished{$ls_filename . "\n"}) {
+			if ($ls_filename &&
+                            exists $old_finished{$ls_filename . "\n"}) {
 			    my ($finished_modification_date, $finished_size) =
-				$old_finished{$ls_filename . "\n"} =~ /### (\S+) (\d+)$/;
+				$old_finished{$ls_filename . "\n"} =~
+                                /### (\S+) (\d+)$/;
 			    if ( ($finished_size eq $ls_size)
-				 && (normalize_date ($finished_modification_date)
-				     eq normalize_date ($ls_modification_date,
-							$ls_modification_time)) )
+				 && (normalize_date
+                                     ($finished_modification_date)
+				     eq normalize_date
+                                     ($ls_modification_date,
+                                      $ls_modification_time)) )
 			    {
 				$finished{$ls_filename . "\n"} =
 				    $old_finished{$ls_filename . "\n"};
@@ -456,7 +472,8 @@ if ($debug == 1) {
 				 sprintf($destinations_format,
 					 substr($_, -17, 17),
 					 substr($destination_usage, -6, 6),
-					 substr($destination_usage_ratios{$_}, -3, 3)));
+					 substr($destination_usage_ratios{$_},
+                                                -3, 3)));
 	    ++ $line_number;
 	    $window_left->attroff($RED);
 	    $window_left->attroff($CYAN);
@@ -481,15 +498,19 @@ if ($debug == 1) {
 	    my $source = $_;
 	    my $current_destination = '?';
 	    if (exists $destination_source_is_writing_to{$source}) {
-		$current_destination = $destination_source_is_writing_to{$source};
+		$current_destination =
+                    $destination_source_is_writing_to{$source};
 	    }
 	    if ($reachable{$source}) { 
 		$window_right->addstr($line_number, 1,
 				      sprintf($sources_format,
-					      substr($source_roots{$source}, 0, 15),
+					      substr($source_roots{$source},
+                                                     0, 15),
 					      substr($speeds{$source}, 0, 11),
-					      substr($progress_ratios{$source}, -9, 9),
-					      substr($current_destination, -13, 13)));
+					      substr($progress_ratios{$source},
+                                                     -9, 9),
+					      substr($current_destination,
+                                                     -13, 13)));
 		++ $line_number;
 	    }
 	    $window_right->addstr($line_number, 1,
