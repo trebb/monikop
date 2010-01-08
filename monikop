@@ -314,66 +314,68 @@ map {
     $being_deleted_thread{$_} = async { qx(rm -rf $p_i_d_being_deleted); };
 } @destination_roots;
 
+if (scalar @destination_roots) {
 # Set up and start things per source_root:
-map {
-    # rotate for crude load balancing:
-    push (@destination_roots, shift (@destination_roots)); 
-    $progress_ratios{$_} = "?"; # Initialize for UI
-    $rsync_worker_thread{$_} = async {
-	while (1) {
-	    my $rsync_log_name = $rsync_log_prefix . $_;
-	    my $finished_name = $finished_prefix . $_;
-	    debug_print 'rsync_preparation_form:' . rsync_preparation_form ($_). "\n";
-	    eval rsync_preparation_form $_;
-	    debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
-	    debug_print 'rsync_dir_exec_form $_:'. $rsync_dir_exec_form{$_} () . "\n";
-	    my @rsync_ls = eval $rsync_dir_exec_form{$_}();
-	    eval $rsync_dir_err_form{$_}();
-	    $reachable{$_} = eval $rsync_dir_err_form{$_}() ? 0 : 1;
-	    debug_print "REACHABLE: $reachable{$_}\n";
-	    if ($reachable{$_}) {
-		my %old_finished = safe_read $finished_name;
-		if (-f $rsync_log_name) { 
-		    my @rsync_log = read_list $rsync_log_name;
-		    foreach (@rsync_log) {
-			my ($file_length, $modification_time, $filename) =
-			    /[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)$/;
-			if ($filename) {
-			    $old_finished{$filename . "\n"} =
-				"### " . $modification_time . " " . $file_length . "\n";
+    map {
+	# rotate for crude load balancing:
+	push (@destination_roots, shift (@destination_roots)); 
+	$progress_ratios{$_} = "?"; # Initialize for UI
+	$rsync_worker_thread{$_} = async {
+	    while (1) {
+		my $rsync_log_name = $rsync_log_prefix . $_;
+		my $finished_name = $finished_prefix . $_;
+		debug_print 'rsync_preparation_form:' . rsync_preparation_form ($_). "\n";
+		eval rsync_preparation_form $_;
+		debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
+		debug_print 'rsync_dir_exec_form $_:'. $rsync_dir_exec_form{$_} () . "\n";
+		my @rsync_ls = eval $rsync_dir_exec_form{$_}();
+		eval $rsync_dir_err_form{$_}();
+		$reachable{$_} = eval $rsync_dir_err_form{$_}() ? 0 : 1;
+		debug_print "REACHABLE: $reachable{$_}\n";
+		if ($reachable{$_}) {
+		    my %old_finished = safe_read $finished_name;
+		    if (-f $rsync_log_name) { 
+			my @rsync_log = read_list $rsync_log_name;
+			foreach (@rsync_log) {
+			    my ($file_length, $modification_time, $filename) =
+				/[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)$/;
+			    if ($filename) {
+				$old_finished{$filename . "\n"} =
+				    "### " . $modification_time . " " . $file_length . "\n";
+			    }
+			}
+			safe_write $finished_name, sort_hash %old_finished;
+			unlink $rsync_log_name unless $debug;
+		    }
+		    my %finished = ();
+		    # Delete from %old_finished what has to be re-rsynced.
+		    foreach (@rsync_ls) {
+			my ($ls_size, $ls_modification_date,
+			    $ls_modification_time, $ls_filename) =
+				/[drwx-]+\s+(\d+) ([\d\/]+) ([\d:]+) (.*)/;
+			if ($ls_filename && exists $old_finished{$ls_filename . "\n"}) {
+			    my ($finished_modification_date, $finished_size) =
+				$old_finished{$ls_filename . "\n"} =~ /### (\S+) (\d+)$/;
+			    if ( ($finished_size eq $ls_size)
+				 && (normalize_date ($finished_modification_date)
+				     eq normalize_date ($ls_modification_date,
+							$ls_modification_time)) )
+			    {
+				$finished{$ls_filename . "\n"} =
+				    $old_finished{$ls_filename . "\n"};
+			    }
 			}
 		    }
-		    safe_write $finished_name, sort_hash %old_finished;
-		    unlink $rsync_log_name unless $debug;
-		}
-		my %finished = ();
-		# Delete from %old_finished what has to be re-rsynced.
-		foreach (@rsync_ls) {
-		    my ($ls_size, $ls_modification_date,
-			$ls_modification_time, $ls_filename) =
-			    /[drwx-]+\s+(\d+) ([\d\/]+) ([\d:]+) (.*)/;
-		    if ($ls_filename && exists $old_finished{$ls_filename . "\n"}) {
-			my ($finished_modification_date, $finished_size) =
-			    $old_finished{$ls_filename . "\n"} =~ /### (\S+) (\d+)$/;
-			if ( ($finished_size eq $ls_size)
-			     && (normalize_date ($finished_modification_date)
-				 eq normalize_date ($ls_modification_date,
-						    $ls_modification_time)) )
-			{
-			    $finished{$ls_filename . "\n"} =
-				$old_finished{$ls_filename . "\n"};
-			}
+		    safe_write $finished_name, %finished;
+		    if (rsync_someplace $_, @destination_roots) {
+			$progress_ratios{$_} = '0'; # Clean staleness for UI
 		    }
+		    sleep $coffee_break;
 		}
-		safe_write $finished_name, %finished;
-		if (rsync_someplace $_, @destination_roots) {
-		    $progress_ratios{$_} = '0'; # Clean staleness for UI
-		}
-		sleep $coffee_break;
 	    }
 	}
-    }
-} keys %source_roots;
+    } keys %source_roots;
+}
 
 # Provide some reassuring user information:
 my $destinations_monitor_thread = async {
