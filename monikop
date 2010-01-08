@@ -407,6 +407,7 @@ if ($debug == 1) {
     sleep;
 } else {
 # Let the workers toil; talk to the user.
+    my $redraw_window_count = 0;
     initscr();
     cbreak();
     noecho();
@@ -457,8 +458,8 @@ if ($debug == 1) {
 					 substr($destination_usage, -6, 6),
 					 substr($destination_usage_ratios{$_}, -3, 3)));
 	    ++ $line_number;
-	$window_left->attroff($RED);
-	$window_left->attroff($CYAN);
+	    $window_left->attroff($RED);
+	    $window_left->attroff($CYAN);
 	} sort @destination_roots;
 	
 	$window_right->attron($MAGENTA);
@@ -495,7 +496,7 @@ if ($debug == 1) {
 				  sprintf($sources_format, "", "", "", ""));
 	} sort (keys %source_roots);
 	$window_right->attroff($MAGENTA);
-
+	
 	$line_number = 0;
 	map {
 	    $window_center->addstr($line_number, 2, $_);
@@ -507,13 +508,20 @@ if ($debug == 1) {
 	$window_bottom->attron(A_BOLD);
 	$window_bottom->addstr(1, 3, "[F3]: Turn off computer.                         [F6]: Restart computer.");
 	$window_bottom->attroff(A_BOLD);
-
+	
 	$window_left->refresh();
 	$window_right->refresh();
 	$window_bottom->refresh();
 	$window_center->refresh(); # Last window gets the cursor.
 	act_on_keypress($window_bottom->getch());
 	sleep 2;
+	if (++ $redraw_window_count > 5) {
+	    $redraw_window_count = 0;
+	    $window_left->clearok(1);
+	    $window_right->clearok(1);
+	    $window_bottom->clearok(1);
+	    $window_center->clearok(1);
+	}
     }
     endwin();
 }
