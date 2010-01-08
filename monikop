@@ -465,7 +465,7 @@ if ($debug == 1) {
 	$window_right->box(0,0);
 	$window_right->addstr(0, 19, "Data Sources");
 	$window_right->attroff($MAGENTA);
-	my $sources_format = "%-18s%-11s%-6s%-13s";
+	my $sources_format = "%-15s%-11s%-9s%-13s";
 	$window_right->attron(A_BOLD);
 	$window_right->addstr(1, 1,
 			      sprintf ($sources_format,
@@ -485,9 +485,9 @@ if ($debug == 1) {
 	    if ($reachable{$source}) { 
 		$window_right->addstr($line_number, 1,
 				      sprintf($sources_format,
-					      substr($source_roots{$source}, 0, 17),
+					      substr($source_roots{$source}, 0, 15),
 					      substr($speeds{$source}, 0, 11),
-					      substr($progress_ratios{$source}, -6, 6),
+					      substr($progress_ratios{$source}, -9, 9),
 					      substr($current_destination, -13, 13)));
 		++ $line_number;
 	    }
