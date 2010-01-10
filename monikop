@@ -409,10 +409,9 @@ my $destinations_monitor_thread = async {
 	    } keys %source_roots;
 	    $destination_usages{$destination_root} = $destination_usage;
 	    my @destination_usage_ratio =
-		grep s/\S+\s+\S+\s+\S+\s+\S+\s+(\d*)%\s+\S+/$1/, qx(df $_);
+		grep s/\S+\s+\S+\s+\S+\s+\S+\s+(\d*)%\s+\S+/$1/, qx(df -P $_);
 	    chomp @destination_usage_ratio;
-	    ($destination_usage_ratios{$_}) =
-		@destination_usage_ratio ? @destination_usage_ratio : '?';
+	    ($destination_usage_ratios{$_}) = @destination_usage_ratio;
 	} @destination_roots;
 	sleep $coffee_break;
     }
@@ -472,7 +471,9 @@ if ($debug == 1) {
 				 sprintf($destinations_format,
 					 substr($_, -17, 17),
 					 substr($destination_usage, -6, 6),
-					 substr($destination_usage_ratios{$_},
+					 substr($destination_usage_ratios{$_} ?
+                                                $destination_usage_ratios{$_} :
+                                                "?",
                                                 -3, 3)));
 	    ++ $line_number;
 	    $window_left->attroff($RED);
@@ -530,23 +531,20 @@ if ($debug == 1) {
 	$window_bottom->addstr(1, 3, "[F3]: Turn off computer.                         [F6]: Restart computer.");
 	$window_bottom->attroff(A_BOLD);
 	
-	$window_left->refresh();
-	$window_right->refresh();
-	$window_bottom->refresh();
-	$window_center->refresh(); # Last window gets the cursor.
+	$window_left->noutrefresh();
+	$window_right->noutrefresh();
+	$window_bottom->noutrefresh();
+	$window_center->noutrefresh(); # Last window gets the cursor.
 	act_on_keypress($window_bottom->getch());
 	sleep 2;
 	if (++ $redraw_window_count > 5) {
 	    $redraw_window_count = 0;
-	    $window_left->clearok(1);
-	    $window_right->clearok(1);
-	    $window_bottom->clearok(1);
-	    $window_center->clearok(1);
+            clearok(1);
 	}
+        doupdate();
     }
     endwin();
 }
-
 
 # Tidy up. (Except we don't reach this.)
 map {
