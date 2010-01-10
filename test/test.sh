@@ -5,6 +5,10 @@
 TESTDIR=/tmp/monikop-test
 DEV=$TESTDIR/dev
 MNT=$TESTDIR/mnt
+LOG=$TESTDIR/log
+TEST_COUNT=0
+FAIL_COUNT=0
+FAILED_TESTS=""
 
 # make_test_drive <name> <size>
 function make_test_drive {
@@ -20,7 +24,7 @@ function make_test_file {
     touch -t $3 $1
 }
 
-# find_and_compare <origin_dir> <copy_dir> <copy_dir> ...
+# find_and_compare <origin_dir> <origin_dir> ... :: <copy_dir> <copy_dir> ...
 function find_and_compare {
     origin_dirs=$1; shift;
     until [[ $1 == "::" ]]; do
@@ -41,17 +45,35 @@ function find_and_compare {
             diverging_mtime="$diverging_mtime $i"
         fi
     done
-    echo "MISSING: $missing"
-    echo "DIVERGING: $diverging"
-    echo "DIVERGING MTIME: $diverging_mtime"
-    if [[ $missing != "" ]]; then return_value=1; fi
-    if [[ $diverging != "" ]]; then return_value=$((return_value + 2)); fi
-    if [[ $diverging_mtime != "" ]]; then return_value=$((return_value + 4)); fi
+    if [[ $missing != "" ]]; then
+        return_value=1
+        echo "MISSING: $missing"
+    fi
+    if [[ $diverging != "" ]]; then
+        return_value=$((return_value + 2))
+        echo "DIVERGING: $diverging"
+    fi
+    if [[ $diverging_mtime != "" ]]; then
+        return_value=$((return_value + 4))
+        echo "DIVERGING MTIME: $diverging_mtime"
+    fi
     return $return_value
 }
 
+# run_test <expected_return> <command>
+function run_test {
+    TEST_COUNT=$(( TEST_COUNT + 1 ))
+    $2
+    RETURN_VALUE=$?
+    if [[ $RETURN_VALUE -ne $1 ]]; then
+        FAIL_COUNT=$(( FAIL_COUNT + 1 ))
+        FAILED_TESTS="$FAILED_TESTS$2($1? $RETURN_VALUE!)\n"
+        echo "$2 should have returned $1 but returned $RETURN_VALUE instead."
+    fi
+}
+
 umount $MNT/* 2> /dev/null
-rm -rf $dev $mnt
+rm -rf $DEV $MNT $LOG
 mkdir -p $DEV $MNT
 
 # Create and mount test drives:
@@ -92,23 +114,43 @@ done
 
 T1=`/usr/bin/time --format="%e" rsync --recursive --times $MNT/01/data/ $MNT/03/ 2>&1 &`
 T2=`/usr/bin/time --format="%e" rsync --recursive --times $MNT/02/data/ $MNT/04/ 2>&1 &`
-INTERRUPTION_TIME_1=`echo "($T1 + $T2) * .08" | bc`
-INTERRUPTION_TIME_2=`echo "($T1 + $T2) * .41" | bc`
+INTERRUPTION_TIME_0=`echo "($T1 + $T2) * 1.5" | bc`
+INTERRUPTION_TIME_1=`echo "($T1 + $T2) * .16" | bc`
+INTERRUPTION_TIME_2=`echo "($T1 + $T2) * .82" | bc`
 echo $INTERRUPTION_TIME_1
 rm -rf $MNT/03/* $MNT/04/*
 
 # Stuff one of the destinations a bit:
-make_test_file $MNT/03/stuffing 25000 199903250845
+# make_test_file $MNT/03/stuffing 25000 199903250845
 
+function test_monikop_simple {
+    ../monikop ../test/monikop.config.test & sleep $INTERRUPTION_TIME_1; /bin/kill -TERM $!
+    find_and_compare /tmp/monikop-test/mnt/01/data /tmp/monikop-test/mnt/02/data :: /tmp/monikop-test/mnt/04/measuring_data /tmp/monikop-test/mnt/03/measuring_data
+}
 
-## like this:
+run_test 0 test_monikop_simple
+run_test 0 test_monikop_simple
+
+echo $TEST_COUNT
+echo $FAIL_COUNT
+echo -e $FAILED_TESTS
+
+exit
+../monikop ../test/monikop.config.test & sleep $INTERRUPTION_TIME_2; /bin/kill -TERM $!
+sleep 2
+find_and_compare /tmp/monikop-test/mnt/01/data /tmp/monikop-test/mnt/02/data :: /tmp/monikop-test/mnt/04/measuring_data /tmp/monikop-test/mnt/03/measuring_data
+if [[ $? -eq 0 ]]; then
+    echo "Shouldn't be finished at this stage!"
+else
+    echo "This is nothing to worry about."
+fi
 ../monikop ../test/monikop.config.test & sleep $INTERRUPTION_TIME_2; /bin/kill -TERM $!
 sleep 2
 ../monikop ../test/monikop.config.test & sleep $INTERRUPTION_TIME_2; /bin/kill -TERM $!
+find_and_compare /tmp/monikop-test/mnt/01/data /tmp/monikop-test/mnt/02/data :: /tmp/monikop-test/mnt/04/measuring_data /tmp/monikop-test/mnt/03/measuring_data
+echo $?
 #../monikop monikop.config.test & sleep $INTERRUPTION_TIME_1; kill $!
 # ../monikop ../test/pokinom.config.test & sleep $INTERRUPTION_TIME_1; killall rsync (make sure we kill only our rsyncs)
 #
 #
-find_and_compare /tmp/monikop-test/mnt/01/data /tmp/monikop-test/mnt/02/data :: /tmp/monikop-test/mnt/04/measuring_data /tmp/monikop-test/mnt/03/measuring_data
-echo $?
 #

@@ -39,12 +39,12 @@ $path_in_destination_being_deleted =
 
 # Path and file name prefix of rsync's raw logs:
 $rsync_log_prefix =
-    '/tmp/monikop/log.'
+    '/tmp/monikop-test/log/log.'
     ;
 
 # Path and file name prefix of the list of successfully rsynced files:
 $finished_prefix =
-    '/tmp/monikop/finished.'
+    '/tmp/monikop-test/log/finished.'
     ; 
 
 # How to suffix the name of the duplicate of a safe file:
