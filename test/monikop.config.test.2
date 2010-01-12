@@ -1,0 +1,80 @@
+# -*- perl -*-
+#############################################################
+# Monikop Settings
+#
+# Copy this file to monikop.config and adapt it to your needs.
+##############################################################
+# Possible data sources, and by what directory name to represent them in
+# destination.
+# When the latter is not unique, care must be taken that all pathnames in the 
+# respective sources are unique.
+%sources = (
+    '/tmp/monikop-test/mnt/01/data' => '',
+    '/tmp/monikop-test/mnt/02/data' => '',
+    );
+
+# Possible mount points of data destinations. Must be unique.
+@usable_mount_points = (
+    '/tmp/monikop-test/mnt/03',
+    '/tmp/monikop-test/mnt/04',
+    '/tmp/monikop-test/mnt/05',
+    );
+
+# Common directory (under a mount point) to put new data in.
+# Must agree with Pokinom's setting.
+$path_in_destination =
+    'measuring_data'
+    ;
+
+# Directories (under any mount point) of this name will be deleted
+# Must agree with Pokinom's setting.
+$path_in_destination_backed_up =
+    'backed_up'
+    ;
+
+# Directory name (under a mount point) while being deleted.
+# Must agree with Pokinom's setting.
+$path_in_destination_being_deleted =
+    'being_deleted'
+    ;
+
+# Path and file name prefix of rsync's raw logs:
+$rsync_log_prefix =
+    '/tmp/monikop-test/log/log.'
+    ;
+
+# Path and file name prefix of the list of successfully rsynced files:
+$finished_prefix =
+    '/tmp/monikop-test/log/finished.'
+    ; 
+
+# How to suffix the name of the duplicate of a safe file:
+$safe_file_backup_suffix =
+    '.bak'
+    ; 
+
+# How to suffix the name of an unfinished safe file:
+$safe_file_unfinished_suffix =
+    '.unfinished'
+    ; 
+
+# What to do (shutdown) when F3 has been pressed:
+$key_f3_action =
+    "sudo halt -p"
+    ;
+
+# What to do (reboot) when F6 has been pressed:
+$key_f6_action =
+    "sudo reboot"
+    ;
+
+# Rsyncs time (in seconds) to wait for a response:
+$rsync_timeout =
+    30
+    ;
+
+# Rsyncs directory (relative to destination) for partially transferred files.
+# Must agree with Pokinom's setting.
+$rsync_partial_dir_name =
+    '.rsync_partial'
+    ;
