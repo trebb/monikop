@@ -1,0 +1,19 @@
+pid file = /tmp/monikop-test/rsync/rsyncd.pid
+log file = /tmp/monikop-test/rsync/rsyncd.log
+port = 2000
+use chroot = no
+
+[test_01]
+        path = /tmp/monikop-test/mnt/01
+        read only = no
+	hosts allow = localhost
+
+[test_02]
+        path = /tmp/monikop-test/mnt/02
+        read only = no
+	hosts allow = localhost
+
+[test_05]
+        path = /tmp/monikop-test/mnt/05
+        read only = no
+	hosts allow = localhost

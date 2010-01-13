@@ -3,7 +3,10 @@ use strict;
 use warnings;
 
 # Where to read local configuration:
-my $pokinom_config = 'pokinom.config';
+my $pokinom_config = '~/monikop/pokinom.config';
+if ($ARGV[0]) {
+    $pokinom_config = $ARGV[0]
+}
 
 ########################################
 # Settings
@@ -49,6 +52,9 @@ if (qx(whoami) eq "bertb\n") {
     print "SOURCES:\n";
     print @sources;
     map {
+        print "FIXME: no action yet.";
+#        my $source = $_;
+#        umount
 #        qx(umount /dev/disk/by-label/Platte_* && fsck -fp /dev/disk/by-label/Platte_*);
     } @sources;
 } else {
