@@ -2,11 +2,11 @@
 use strict;
 use warnings;
 use integer;
-use Data::Dumper;
 use File::Rsync;
+use File::Basename;
 use Thread 'async';
 use threads::shared;
-use Curses;
+use Curses; # Debian package libcurses-perl
 
 my @monikop_banner = (
     "    _/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/_/_/ ", 
@@ -19,9 +19,11 @@ my @monikop_banner = (
 # Debug mode:
 # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
 my $debug = 0;
+$debug = $ARGV[1] if $ARGV[1];
 
 # Where to read local configuration:
-my $monikop_config = 'monikop.config';
+my $monikop_config = '~/monikop/monikop.config';
+$monikop_config = $ARGV[0] if $ARGV[0];
 
 ########################################
 # Settings
@@ -75,7 +77,8 @@ my $rsync_partial_dir_name;
 # Put actual values into the above.
 eval `cat $monikop_config`;
 
-# Time in seconds before rsync is restarted and user information is recalculated:
+# Time in seconds before rsync is restarted and user information is
+# recalculated:
 my $coffee_break = 10;
 
 # Places to store run-time information to share between threads:
@@ -88,7 +91,8 @@ my %reachable :shared;
 
 sub debug_print { if ($debug) { print @_; } };
 
-# Return the hash referenced by argument, which is sorted if accessed as an array:
+# Return the hash referenced by argument, which is sorted if accessed as an
+# array:
 sub sort_hash {
     my %hash_table = @_;
     my @sorted_hash = ();
@@ -136,9 +140,9 @@ sub intersection {
     sort @intersection;
 }
 
-# Write @content to a file with name $filename or a name starting with $filename
-# and ending with $safe_file_backup_suffix. Leave at least one such file, even
-# if interrupted.
+# Write @content to a file with name $filename or a name starting with
+# $filename and ending with $safe_file_backup_suffix. Leave at least one such
+# file, even if interrupted.
 sub safe_write {
     my ($filename, @content) = @_;
     my $filename_a = $filename;
@@ -157,7 +161,8 @@ sub safe_write {
 sub read_list {
     my ($filename) = @_;
     local (*FILE);
-    open FILE, '<', $filename or warn "[" . $$ . "] open $filename failed: $!\n";
+    open FILE, '<', $filename
+        or warn "[" . $$ . "] open $filename failed: $!\n";
     my @value = <FILE>;
     close FILE;
     @value;
@@ -284,7 +289,19 @@ sub rsync_someplace {
     $success;
 }
 
+sub restore_terminal_and_die {
+    endwin(); # Leave a usable terminal.
+    die "Signal $_[0] caught";
+}
+$SIG{TERM} = 'restore_terminal_and_die';
+
 # Preparations done; sleeves up!
+
+# Make sure we have dirs to put our logs in:
+map {
+    my ($filename, $directory) = fileparse $_;
+    qx(mkdir -p $directory);
+} ( $rsync_log_prefix, $finished_prefix );
 
 # Find usable destinations:
 my @raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
@@ -306,66 +323,75 @@ map {
     $being_deleted_thread{$_} = async { qx(rm -rf $p_i_d_being_deleted); };
 } @destination_roots;
 
+if (scalar @destination_roots) {
 # Set up and start things per source_root:
-map {
-    # rotate for crude load balancing:
-    push (@destination_roots, shift (@destination_roots)); 
-    $progress_ratios{$_} = "?"; # Initialize for UI
-    $rsync_worker_thread{$_} = async {
-	while (1) {
-	    my $rsync_log_name = $rsync_log_prefix . $_;
-	    my $finished_name = $finished_prefix . $_;
-	    debug_print 'rsync_preparation_form:' . rsync_preparation_form ($_). "\n";
-	    eval rsync_preparation_form $_;
-	    debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
-	    debug_print 'rsync_dir_exec_form $_:'. $rsync_dir_exec_form{$_} () . "\n";
-	    my @rsync_ls = eval $rsync_dir_exec_form{$_}();
-	    eval $rsync_dir_err_form{$_}();
-	    $reachable{$_} = eval $rsync_dir_err_form{$_}() ? 0 : 1;
-	    debug_print "REACHABLE: $reachable{$_}\n";
-	    if ($reachable{$_}) {
-		my %old_finished = safe_read $finished_name;
-		if (-f $rsync_log_name) { 
-		    my @rsync_log = read_list $rsync_log_name;
-		    foreach (@rsync_log) {
-			my ($file_length, $modification_time, $filename) =
-			    /[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)$/;
-			if ($filename) {
-			    $old_finished{$filename . "\n"} =
-				"### " . $modification_time . " " . $file_length . "\n";
+    map {
+	# rotate for crude load balancing:
+	push (@destination_roots, shift (@destination_roots)); 
+	$progress_ratios{$_} = "?"; # Initialize for UI
+	$rsync_worker_thread{$_} = async {
+	    while (1) {
+		my $rsync_log_name = $rsync_log_prefix . $_;
+		my $finished_name = $finished_prefix . $_;
+		debug_print 'rsync_preparation_form:' .
+                    rsync_preparation_form ($_). "\n";
+		eval rsync_preparation_form $_;
+		debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
+		debug_print 'rsync_dir_exec_form $_:'.
+                    $rsync_dir_exec_form{$_} () . "\n";
+		my @rsync_ls = eval $rsync_dir_exec_form{$_}();
+		eval $rsync_dir_err_form{$_}();
+		$reachable{$_} = eval $rsync_dir_err_form{$_}() ? 0 : 1;
+		debug_print "REACHABLE: $reachable{$_}\n";
+		if ($reachable{$_}) {
+		    my %old_finished = safe_read $finished_name;
+		    if (-f $rsync_log_name) { 
+			my @rsync_log = read_list $rsync_log_name;
+			foreach (@rsync_log) {
+			    my ($file_length, $modification_time, $filename) =
+				/[\d\/\s:\[\]]+ [>c\.][fd]\S{9} \d+ (\d+) ([\d\/:-]+) (.*)$/;
+			    if ($filename) {
+				$old_finished{$filename . "\n"} =
+				    "### " . $modification_time . " " .
+                                    $file_length . "\n";
+			    }
+			}
+			safe_write $finished_name, sort_hash %old_finished;
+			unlink $rsync_log_name unless $debug;
+		    }
+		    my %finished = ();
+		    # Delete from %old_finished what has to be re-rsynced.
+		    foreach (@rsync_ls) {
+			my ($ls_size, $ls_modification_date,
+			    $ls_modification_time, $ls_filename) =
+				/[drwx-]+\s+(\d+) ([\d\/]+) ([\d:]+) (.*)/;
+			if ($ls_filename &&
+                            exists $old_finished{$ls_filename . "\n"}) {
+			    my ($finished_modification_date, $finished_size) =
+				$old_finished{$ls_filename . "\n"} =~
+                                /### (\S+) (\d+)$/;
+			    if ( ($finished_size eq $ls_size)
+				 && (normalize_date
+                                     ($finished_modification_date)
+				     eq normalize_date
+                                     ($ls_modification_date,
+                                      $ls_modification_time)) )
+			    {
+				$finished{$ls_filename . "\n"} =
+				    $old_finished{$ls_filename . "\n"};
+			    }
 			}
 		    }
-		    safe_write $finished_name, sort_hash %old_finished;
-		    unlink $rsync_log_name unless $debug;
-		}
-		my %finished = ();
-		# Delete from %old_finished what has to be re-rsynced.
-		foreach (@rsync_ls) {
-		    my ($ls_size, $ls_modification_date,
-			$ls_modification_time, $ls_filename) =
-			    /[drwx-]+\s+(\d+) ([\d\/]+) ([\d:]+) (.*)/;
-		    if ($ls_filename && exists $old_finished{$ls_filename . "\n"}) {
-			my ($finished_modification_date, $finished_size) =
-			    $old_finished{$ls_filename . "\n"} =~ /### (\S+) (\d+)$/;
-			if ( ($finished_size eq $ls_size)
-			     && (normalize_date ($finished_modification_date)
-				 eq normalize_date ($ls_modification_date,
-						    $ls_modification_time)) )
-			{
-			    $finished{$ls_filename . "\n"} =
-				$old_finished{$ls_filename . "\n"};
-			}
+		    safe_write $finished_name, %finished;
+		    if (rsync_someplace $_, @destination_roots) {
+			$progress_ratios{$_} = '0'; # Clean staleness for UI
 		    }
+		    sleep $coffee_break;
 		}
-		safe_write $finished_name, %finished;
-		if (rsync_someplace $_, @destination_roots) {
-		    $progress_ratios{$_} = '0'; # Clean staleness for UI
-		}
-		sleep $coffee_break;
 	    }
 	}
-    }
-} keys %source_roots;
+    } keys %source_roots;
+}
 
 # Provide some reassuring user information:
 my $destinations_monitor_thread = async {
@@ -383,10 +409,9 @@ my $destinations_monitor_thread = async {
 	    } keys %source_roots;
 	    $destination_usages{$destination_root} = $destination_usage;
 	    my @destination_usage_ratio =
-		grep s/\S+\s+\S+\s+\S+\s+\S+\s+(\d*)%\s+\S+/$1/, qx(df $_);
+		grep s/\S+\s+\S+\s+\S+\s+\S+\s+(\d*)%\s+\S+/$1/, qx(df -P $_);
 	    chomp @destination_usage_ratio;
-	    ($destination_usage_ratios{$_}) =
-		@destination_usage_ratio ? @destination_usage_ratio : '?';
+	    ($destination_usage_ratios{$_}) = @destination_usage_ratio;
 	} @destination_roots;
 	sleep $coffee_break;
     }
@@ -397,6 +422,7 @@ if ($debug == 1) {
     sleep;
 } else {
 # Let the workers toil; talk to the user.
+    my $redraw_window_count = 0;
     initscr();
     cbreak();
     noecho();
@@ -445,17 +471,20 @@ if ($debug == 1) {
 				 sprintf($destinations_format,
 					 substr($_, -17, 17),
 					 substr($destination_usage, -6, 6),
-					 substr($destination_usage_ratios{$_}, -3, 3)));
+					 substr($destination_usage_ratios{$_} ?
+                                                $destination_usage_ratios{$_} :
+                                                "?",
+                                                -3, 3)));
 	    ++ $line_number;
-	$window_left->attroff($RED);
-	$window_left->attroff($CYAN);
+	    $window_left->attroff($RED);
+	    $window_left->attroff($CYAN);
 	} sort @destination_roots;
 	
 	$window_right->attron($MAGENTA);
 	$window_right->box(0,0);
 	$window_right->addstr(0, 19, "Data Sources");
 	$window_right->attroff($MAGENTA);
-	my $sources_format = "%-18s%-11s%-6s%-13s";
+	my $sources_format = "%-15s%-11s%-9s%-13s";
 	$window_right->attron(A_BOLD);
 	$window_right->addstr(1, 1,
 			      sprintf ($sources_format,
@@ -470,22 +499,26 @@ if ($debug == 1) {
 	    my $source = $_;
 	    my $current_destination = '?';
 	    if (exists $destination_source_is_writing_to{$source}) {
-		$current_destination = $destination_source_is_writing_to{$source};
+		$current_destination =
+                    $destination_source_is_writing_to{$source};
 	    }
 	    if ($reachable{$source}) { 
 		$window_right->addstr($line_number, 1,
 				      sprintf($sources_format,
-					      substr($source_roots{$source}, 0, 17),
+					      substr($source_roots{$source},
+                                                     0, 15),
 					      substr($speeds{$source}, 0, 11),
-					      substr($progress_ratios{$source}, -6, 6),
-					      substr($current_destination, -13, 13)));
+					      substr($progress_ratios{$source},
+                                                     -9, 9),
+					      substr($current_destination,
+                                                     -13, 13)));
 		++ $line_number;
 	    }
 	    $window_right->addstr($line_number, 1,
 				  sprintf($sources_format, "", "", "", ""));
 	} sort (keys %source_roots);
 	$window_right->attroff($MAGENTA);
-
+	
 	$line_number = 0;
 	map {
 	    $window_center->addstr($line_number, 2, $_);
@@ -497,17 +530,21 @@ if ($debug == 1) {
 	$window_bottom->attron(A_BOLD);
 	$window_bottom->addstr(1, 3, "[F3]: Turn off computer.                         [F6]: Restart computer.");
 	$window_bottom->attroff(A_BOLD);
-
-	$window_left->refresh();
-	$window_right->refresh();
-	$window_bottom->refresh();
-	$window_center->refresh(); # Last window gets the cursor.
+	
+	$window_left->noutrefresh();
+	$window_right->noutrefresh();
+	$window_bottom->noutrefresh();
+	$window_center->noutrefresh(); # Last window gets the cursor.
 	act_on_keypress($window_bottom->getch());
 	sleep 2;
+	if (++ $redraw_window_count > 5) {
+	    $redraw_window_count = 0;
+            clearok(1);
+	}
+        doupdate();
     }
     endwin();
 }
-
 
 # Tidy up. (Except we don't reach this.)
 map {

@@ -9,18 +9,15 @@
 # When the latter is not unique, care must be taken that all pathnames in the 
 # respective sources are unique.
 %sources = (
-    'data_producer1::data' => 'p1',
-    'data_producer2::data' => 'p2',
-    'data_producer3::data' => '',
-    'data_producer4::data' => '',
+    'rsync://localhost:2000/test_01/data' => '',
+    'rsync://localhost:2000/test_02/data' => '',
     );
 
 # Possible mount points of data destinations. Must be unique.
 @usable_mount_points = (
-    '/media/disk_1',
-    '/media/disk_2',
-    '/media/disk_3',
-    '/blah',
+    '/tmp/monikop-test/mnt/03',
+    '/tmp/monikop-test/mnt/04',
+    '/tmp/monikop-test/mnt/05',
     );
 
 # Common directory (under a mount point) to put new data in.
@@ -43,12 +40,12 @@ $path_in_destination_being_deleted =
 
 # Path and file name prefix of rsync's raw logs:
 $rsync_log_prefix =
-    '/tmp/monikop/log.'
+    '/tmp/monikop-test/log/log.'
     ;
 
 # Path and file name prefix of the list of successfully rsynced files:
 $finished_prefix =
-    '/tmp/monikop/finished.'
+    '/tmp/monikop-test/log/finished.'
     ; 
 
 # How to suffix the name of the duplicate of a safe file:

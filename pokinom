@@ -21,6 +21,9 @@ my $debug = 0;
 
 # Where to read local configuration:
 my $pokinom_config = '~/monikop/pokinom.config';
+if ($ARGV[0]) {
+    $pokinom_config = $ARGV[0]
+}
 
 ########################################
 # Settings
@@ -152,6 +155,12 @@ sub act_on_keypress {
 $ENV{USER} = $rsync_username if ($rsync_username);
 $ENV{RSYNC_PASSWORD} = $rsync_password if ($rsync_password);
 
+sub restore_terminal_and_die {
+    endwin(); # Leave a usable terminal.
+    die "Signal $_[0] caught";
+}
+$SIG{TERM} = 'restore_terminal_and_die';
+
 # Preparations done; sleeves up!
 
 # Find usable (i.e. mounted) sources
@@ -181,10 +190,9 @@ map {
     $being_deleted_thread{$_} = async { qx(rm -rf $p_i_d_being_deleted 2> /dev/null); };
 } keys %source_roots;
 
-# This could be more sophisticated
+# This could be	more sophisticated                                                                            
 print "Waiting for $destination to become reachable.\n";
 sleep 10;
-
 
 my %rsync_worker_thread;
 my %rsync_exec_form;
@@ -260,6 +268,7 @@ if ($debug == 1) {
     sleep;
 } else {
 # Let the workers toil and talk to the user.
+    my $redraw_window_count = 0;
     initscr();
     cbreak();
     noecho();
@@ -320,10 +329,15 @@ if ($debug == 1) {
 					: "Staying on.  [F9]: Turn off when done."));
 	$window_bottom->attroff(A_BOLD);
 
-	$window_top->refresh();
-	$window_bottom->refresh();
-	$window_center->refresh(); # Last window gets the cursor.
+	$window_top->noutrefresh();
+	$window_bottom->noutrefresh();
+	$window_center->noutrefresh(); # Last window gets the cursor.
 	sleep 2;
+	if (++ $redraw_window_count > 5) {
+	    $redraw_window_count = 0;
+            clearok(1);
+	}
+        doupdate();
 	act_on_keypress($window_bottom->getch());
 	if (! grep(/0/, values %done) && $shut_down_when_done) {
 	    qx ($shut_down_action);
