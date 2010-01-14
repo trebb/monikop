@@ -20,7 +20,6 @@
     '/media/disk_1',
     '/media/disk_2',
     '/media/disk_3',
-    '/blah',
     );
 
 # Common directory (under a mount point) to put new data in.

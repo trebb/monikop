@@ -1,21 +1,97 @@
-* Introduction
+* Purpose
 
-  - Data sources on isolated rover
-  - Data destination 
-  - Data transfer by removable disks which are filled by Monikop on
-    rover, emptied by Pokinom
-  - Transfer rates ca. ...
+Suppose we have an isolated network of data producing computers
+(Sources), e.g. in a surveying vehicle (Rover). The collected data (a
+few Terabytes per day) need to be transferred to a processing server
+(Destination) in office.
+
+This data transfer, which happens my means of removable disks, is our
+job.
+
+On Rover, the disks are put into a dedicated computer where they are
+filled automatically by Monikop with data pulled from Sources.
+
+The disks are then carried to the office and put into another
+dedicated computer. Here, Monikop's counterpart called Pokinom pushes
+their content to Destination and makes the disks re-usable by
+Monikop. 
+
+The heavy lifting is done by rsync. Sources as well as Destinnation
+need to have rsync servers installed.
+
+ - Transfer rates ca. ...
+
 
 * Installation
 
-** Debian Packages to Use
-   rsync, mingetty, sudo, libcurses-perl, libfile-rsync-perl, git-core (installation), mingetty, bc (test), time (test)
-** git-clone ...
-** monikop.config, pokinom.config
-** monikop + pokinom: if necessary, specify path to config, eg. my $monikop_config = '/home/m-operator/monikop/monikop.config'
+ 1. Debian packages to use
+
+   - to install from a git repository: git-core
+
+   - to run Monikop and Pokinom: 
+     rsync, mingetty, sudo, libcurses-perl, libfile-rsync-perl,
+     mingetty
+
+   - to run the tests: bc, time
+
+ 1. Create a user on both Monikop's and Pokinom's machine. For
+    descriptions sake, we assume they're called m-operator.
+
+ 1. Get Monikop (and Pokinom); from m-operator's home directory say:
+
+   =git-clone (FIXME: repo here)=
+
+ 1. Copy =monikop.config.example= to =monikop.config= and
+    =pokinom.config.example= to =pokinom.config=, respectively, and
+    adapt them according to your needs. Both have helpful comments,
+    and both are perl code, so be careful and keep the interpunction
+    in place. 
+
+    Things you want to change are
+
+    - for Monikop in =monikop.config=
+
+       <src lang="perl">
+       # Possible data sources, and by what directory name to represent them in
+       # destination.
+       # When the latter is not unique, care must be taken that all pathnames in the 
+       # respective sources are unique.
+       %sources = (
+           'data_producer1::data' => 'p1',
+           'data_producer2::data' => 'p2',
+           'data_producer3::data' => '',
+           'data_producer4::data' => '',
+           );
+       
+       # Possible mount points of data destinations. Must be unique.
+       @usable_mount_points = (
+           '/media/disk_1',
+           '/media/disk_2',
+           '/media/disk_3',
+           );
+       </src>
+
+    - for Pokinom
+
+     <src lang="perl">
+     # Possible mount points. Must be unique in their tails after rightmost /.
+     @possible_mount_points = (
+         '/media/disk_1',
+         '/media/disk_2',
+         '/media/disk_3',
+         );
+     </src>
 
 ** Automatic login (Monikop and Pokinom):
-=/etc/inittab=: change line into
+
+=/etc/inittab=: change line which says
+
+<src lang="conf">
+1:2345:respawn:/sbin/getty 38400 tty1
+</src>
+
+into
+
 <src lang="conf">
 1:2345:respawn:/sbin/mingetty --autologin m-operator --noclear tty1
 </src>
@@ -29,6 +105,11 @@
    <src lang="bash">
    /home/m-operator/monikop/pokinom,
    respectively.
+   </src>
+
+   If necessary, specify path to config file, e.g.  
+   <src lang="bash">
+   /home/m-operator/monikop/monikop /home/m-operator/monikop/monikop.config
    </src>
 
 ** Removable disks
@@ -50,7 +131,7 @@
    - Make sure system boots actually from the system disk rather than from some removable one:
 
      Change =/boot/grub/menu.lst= where is says
-     =# kopt=root=...=:
+     <code># kopt=root=...</code>:
      <src lang="conf">
      ### BEGIN AUTOMAGIC KERNELS LIST
      ## lines between the AUTOMAGIC KERNELS LIST markers will be modified
@@ -70,12 +151,13 @@
      </src>
 
      and call:
+
      =update-grub=
 
-** =/etc/sudoers=:
-   call
-   =visudo=
-   and add:
+** Authorize m-operator to shut down computer
+
+Use =visudo= to change =/etc/sudoers=; add:
+
    <src lang="conf">
    messung ALL=(ALL) NOPASSWD: /sbin/halt -p
    messung ALL=(ALL) NOPASSWD: /sbin/reboot
@@ -140,7 +222,9 @@
          address 192.168.200.69
          netmask 255.255.255.248
       </src>
-    - non-overlapping subnets (http://jodies.de/ipcalc may be helpful)
+
+    - Provide for non-overlapping subnets. (http://jodies.de/ipcalc may be helpful.)
+
 *** Data sources
 
     - Windows: Location of =/etc/hosts/=: =%SystemRoot%\system32\drivers\etc\hosts=
@@ -194,34 +278,73 @@
 *** Pokinom
 
 
-*** Data sink
+*** Data destination
+
 ** Rsync server installation
-*** Linux
-    /etc/default/rsync:
-    Change line
+
+    - Linux
+
+    =/etc/default/rsync=:
+    Change line from
+    <src lang="conf">
+    RSYNC_ENABLE = false
+    </src>
+    to
+    <src lang="conf">
     RSYNC_ENABLE = true
-    /etc/rsyncd.conf
+    </src>
+    =/etc/rsyncd.conf:=
+
+    <src lang="conf">
+     gid = str_db1_media
+     use chroot = yes
+     max connections = 0
+     pid file = /var/run/rsyncd.pid
+     
+     [media]
+             path = /mnt/./data0
+             list = no
+             comment = Pokinom only (requires authentication)
+             read only = no
+             incoming chmod = g+r,g+w
+             write only = yes
+             # Pokinom's IP:
+             hosts allow = 192.168.180.120
+             auth users = m-operator
+             secrets file = /etc/rsyncd.secrets
+    </src>
+
+    =/etc/rsyncd.secrets=:
+
+    <src lang="conf">
+    m-operator:seCreT
+    </src>
+
     Data source (rover)
-    Data sink (office)
-*** Windows
+    Data destination (office)
+
+    - Windows
+
     install cwrsync:
     http://sourceforge.net/projects/sereds/files/cwRsync/4.0.3/cwRsyncServer_4.0.3_Installer.zip/download
     rsyncd.conf
     Service rsync: autostart
 
 * Usage
-  You have to be able to tell from your data if it's complete.
-  Monikop shows which disks have data and therefore should be
-  transferred to Pokinom.
-  Monikop keeps starting over until shutdown or until disappearance
-  or data source(s)
-  Pokinom needs sufficient amount of free space on sink; must be
-  rebooted once this is not the case.
-  fsck-monikop: to be run by root
-  Backup functionality: data remains on disks until re-inserted in
-  Monikop.
+
+   - You have to be able to tell from your data if it's complete.
+   - Monikop shows which disks have data and therefore should be
+     transferred to Pokinom.
+   - Monikop keeps starting over until shutdown or until disappearance
+     or data source(s)
+   - Pokinom needs sufficient amount of free space on sink; must be
+     rebooted once this is not the case.
+   - fsck-monikop: to be run by root
+   - Backup functionality: data remains on disks until re-inserted in
+     Monikop.
 
 * Bugs
+
   - Data must not contain any directories called $rsync_partial_dir_name
   - Doesn't reflect disappearance of files on sources
   - May ignore empty dirs (really?)
