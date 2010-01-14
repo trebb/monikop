@@ -11,7 +11,7 @@ few Terabytes per day) need to be transferred to a processing server
 This data transfer, which happens by means of removable disks, is our
 job.
 
-On Rover, the disks are put into a dedicated computer where they are
+On Rover, a couple of removable disks are put into a dedicated computer where they are
 filled automatically by Monikop with data pulled from Sources.
 
 The disks are then carried to the office where they are put into another
