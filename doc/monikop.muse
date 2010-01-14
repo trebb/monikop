@@ -1,0 +1,228 @@
+* Introduction
+
+  - Data sources on isolated rover
+  - Data destination 
+  - Data transfer by removable disks which are filled by Monikop on
+    rover, emptied by Pokinom
+  - Transfer rates ca. ...
+
+* Installation
+
+** Debian Packages to Use
+   rsync, mingetty, sudo, libcurses-perl, libfile-rsync-perl, git-core (installation), mingetty, bc (test), time (test)
+** git-clone ...
+** monikop.config, pokinom.config
+** monikop + pokinom: if necessary, specify path to config, eg. my $monikop_config = '/home/m-operator/monikop/monikop.config'
+
+** Automatic login (Monikop and Pokinom):
+=/etc/inittab=: change line into
+<src lang="conf">
+1:2345:respawn:/sbin/mingetty --autologin m-operator --noclear tty1
+</src>
+
+** Autostart (Monikop and Pokinom):
+   Append to =~/.profile= (create if necessary):
+   <src lang="bash">
+   /home/m-operator/monikop/monikop
+   </src>
+   or
+   <src lang="bash">
+   /home/m-operator/monikop/pokinom,
+   respectively.
+   </src>
+
+** Removable disks
+   - Create Filesystems. Example (suppose disk tagged disk_10 is attached to /dev/sdg1):
+
+     =mke2fs -j -L disk_10 /dev/sdg1=
+
+   - =/etc/fstab=:
+     <src lang="conf">
+     ## System partitions ###
+     LABEL=root     /               ext3  defaults,errors=remount-ro 0  1
+     LABEL=swap     none            swap  sw                         0  0
+     ## Removable disks                   
+     LABEL=disk_01  /media/disk_01  ext3  rw,user,auto               0  0
+     LABEL=disk_02  /media/disk_02  ext3  rw,user,auto               0	0
+     # etc
+     </src>
+
+   - Make sure system boots actually from the system disk rather than from some removable one:
+
+     Change =/boot/grub/menu.lst= where is says
+     =# kopt=root=...=:
+     <src lang="conf">
+     ### BEGIN AUTOMAGIC KERNELS LIST
+     ## lines between the AUTOMAGIC KERNELS LIST markers will be modified
+     ## by the debian update-grub script except for the default options below
+     
+     ## DO NOT UNCOMMENT THEM, Just edit them to your needs
+     
+     ## ## Start Default Options ##
+     ## default kernel options
+     ## default kernel options for automagic boot options
+     ## If you want special options for specific kernels use kopt_x_y_z
+     ## where x.y.z is kernel version. Minor versions can be omitted.
+     ## e.g. kopt=root=/dev/hda1 ro
+     ##      kopt_2_6_8=root=/dev/hdc1 ro
+     ##      kopt_2_6_8_2_686=root=/dev/hdc2 ro
+     # kopt=root=/dev/disk/by-label/root noresume ro
+     </src>
+
+     and call:
+     =update-grub=
+
+** =/etc/sudoers=:
+   call
+   =visudo=
+   and add:
+   <src lang="conf">
+   messung ALL=(ALL) NOPASSWD: /sbin/halt -p
+   messung ALL=(ALL) NOPASSWD: /sbin/reboot
+   </src>
+
+** Network setup
+
+*** Monikop
+
+    - =/etc/hosts=
+      <src lang="conf">
+      127.0.0.1      localhost
+      192.168.200.10 central
+      192.168.178.20 nav
+      192.168.200.30 front
+      192.168.178.40 data
+      192.168.200.50 rear-left
+      192.168.200.60 rear-right
+      192.168.200.70 scanner
+      </src>
+
+    - =/etc/network/interfaces=
+      <src lang="conf">
+      # The loopback network interface
+      auto lo
+      iface lo inet loopback
+      
+      # central
+      allow-hotplug eth1
+      iface eth1 inet static
+         address 192.168.200.9
+         netmask 255.255.255.248
+      
+      # switch
+      allow-hotplug eth2
+      iface eth2 inet static
+         address 192.168.178.40
+         netmask 255.255.240.0
+         gateway 192.168.180.169
+      
+      # front
+      allow-hotplug eth3
+      iface eth3 inet static
+         address 192.168.200.29
+         netmask 255.255.255.248
+      
+      # rear-left
+      allow-hotplug eth4
+      iface eth4 inet static
+         address 192.168.200.49
+         netmask 255.255.255.248
+      
+      # rear-right
+      allow-hotplug eth5
+      iface eth5 inet static
+         address 192.168.200.59
+         netmask 255.255.255.248
+      
+      # scanner
+      allow-hotplug eth6
+      iface eth6 inet static
+         address 192.168.200.69
+         netmask 255.255.255.248
+      </src>
+    - non-overlapping subnets (http://jodies.de/ipcalc may be helpful)
+*** Data sources
+
+    - Windows: Location of =/etc/hosts/=: =%SystemRoot%\system32\drivers\etc\hosts=
+
+    - IP address 192.168.200.60
+    - Subnet mask 255.255.255.248
+
+    - =/etc/hosts=:
+
+    <src lang="conf">
+      127.0.0.1      localhost
+      192.168.178.10 central
+      192.168.178.20 nav
+      192.168.178.30 front
+      192.168.178.40 data
+      192.168.178.50 rear-left
+      192.168.178.60 rear-right
+      192.168.178.70 scanner
+    </src>
+
+    - =rsyncd.conf=:
+
+    (click Start, Programs, csRsyncServer, rsyncd.conf)
+    <src lang="conf">
+    use chroot = false
+    strict modes = false
+    hosts allow = *
+    logfile = rsyncd.log
+    [log]
+    #   /cygdrive/e/log stands for E:\log
+        path = /cygdrive/e/log
+        read only = false
+        transfer logging = false
+    </src>
+        <src lang="conf">
+       pid file=/var/run/rsyncd.pid
+       [log]
+           path = /media/platte_03
+           use chroot = yes
+           lock file = /var/lock/rsyncd
+           read only = yes
+           list = yes
+           uid = nobody
+           gid = nogroup
+           strict modes = yes
+           ignore errors = no
+           ignore nonreadable = yes
+           transfer logging = no
+        </src>
+
+*** Pokinom
+
+
+*** Data sink
+** Rsync server installation
+*** Linux
+    /etc/default/rsync:
+    Change line
+    RSYNC_ENABLE = true
+    /etc/rsyncd.conf
+    Data source (rover)
+    Data sink (office)
+*** Windows
+    install cwrsync:
+    http://sourceforge.net/projects/sereds/files/cwRsync/4.0.3/cwRsyncServer_4.0.3_Installer.zip/download
+    rsyncd.conf
+    Service rsync: autostart
+
+* Usage
+  You have to be able to tell from your data if it's complete.
+  Monikop shows which disks have data and therefore should be
+  transferred to Pokinom.
+  Monikop keeps starting over until shutdown or until disappearance
+  or data source(s)
+  Pokinom needs sufficient amount of free space on sink; must be
+  rebooted once this is not the case.
+  fsck-monikop: to be run by root
+  Backup functionality: data remains on disks until re-inserted in
+  Monikop.
+
+* Bugs
+  - Data must not contain any directories called $rsync_partial_dir_name
+  - Doesn't reflect disappearance of files on sources
+  - May ignore empty dirs (really?)
+   
