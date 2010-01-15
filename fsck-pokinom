@@ -12,7 +12,7 @@ if ($ARGV[0]) {
 # Settings
 ########################################
 # Possible mount points
-my @possible_mount_points;
+my @usable_mount_points;
 
 # Other settings from $pokinom_config, not used here.
 my $path_under_mount_point;
@@ -48,7 +48,7 @@ if (qx(whoami) eq "bertb\n") {
 # Find checkable (i.e. mounted) disks
     my @raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
     chomp @raw_mount_points;
-    my @sources = intersection @raw_mount_points, @possible_mount_points;
+    my @sources = intersection @raw_mount_points, @usable_mount_points;
     print "SOURCES:\n";
     print @sources;
     map {

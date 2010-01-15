@@ -29,7 +29,7 @@ if ($ARGV[0]) {
 # Settings
 ########################################
 # Possible mount points. Must be unique in their tails after rightmost /.
-my @possible_mount_points;
+my @usable_mount_points;
 
 # Directory relative to a mount point where new data resides.
 # Must agree with Monikop's setting.
@@ -166,7 +166,7 @@ $SIG{TERM} = 'restore_terminal_and_die';
 # Find usable (i.e. mounted) sources
 my @raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
 chomp @raw_mount_points;
-my @sources = intersection @raw_mount_points, @possible_mount_points;
+my @sources = intersection @raw_mount_points, @usable_mount_points;
 debug_print "SOURCES:\n";
 debug_print @sources;
 

@@ -5,7 +5,7 @@
 # Copy this file to pokinom.config and adapt it to your needs.
 ##############################################################
 # Possible mount points. Must be unique in their tails after rightmost /.
-@possible_mount_points = (
+@usable_mount_points = (
     '/media/disk_1',
     '/media/disk_2',
     '/media/disk_3',

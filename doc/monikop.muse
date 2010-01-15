@@ -136,7 +136,7 @@ Things you want to change for Pokinom in =pokinom.config=:
 
 <src lang="perl">
 # Possible mount points.
-@possible_mount_points = (
+@usable_mount_points = (
     '/media/disk_1',
     '/media/disk_2',
     '/media/disk_3',
