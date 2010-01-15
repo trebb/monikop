@@ -1,5 +1,5 @@
 #title Monikop and Pokinom
-#subtitle rsync from unconnected hosts
+#subtitle rsync between unconnected hosts
 
 * Purpose
 
@@ -8,8 +8,8 @@ Suppose we have an isolated network of data producing computers
 few Terabytes per day) need to be transferred to a processing server
 (Destination) in office.
 
-This data transfer, which happens by means of removable disks, is our
-job.
+This data transfer, which happens by means of removable disks, is
+Monikop's and Pokinom's job.
 
 On Rover, a couple of removable disks are put into a dedicated computer where they are
 filled automatically by Monikop with data pulled from Sources.
@@ -19,13 +19,17 @@ dedicated computer. Here, Monikop's counterpart called Pokinom pushes
 their content to Destination and makes the disks re-usable by
 Monikop. 
 
-The heavy lifting is done by [[http://www.samba.org/rsync/][rsync]]. Sources as well as Destination
-need to have rsync servers installed.
+The heavy lifting is done by [[http://www.samba.org/rsync/][Rsync]]. Sources as well as Destination
+need to have Rsync installed. Both can be running Linux as
+well as Windows.
 
  - Transfer rates ca. ...
 
 
 * Installation
+
+We assume Debian GNU/Linux here, but any distribution should
+work. Adapt installation instructions accordingly.
 
 ** Packages
 
@@ -33,11 +37,11 @@ For Debian, use
 
  - to install from a git repository: git-core;
 
- - to run Monikop or Pokinom: 
-   rsync, mingetty, sudo, libcurses-perl, libfile-rsync-perl,
-   mingetty;
+ - to run Monikop (on Rover) or Pokinom (in office): 
+   rsync, mingetty, sudo, libcurses-perl, libfile-rsync-perl;
 
  - to run the tests: bc, time.
+
 
 
 ** Prepare Removable Disks
@@ -49,11 +53,13 @@ Create Filesystems with labels for the removable disks. Example
 
 =mke2fs -j -L disk_10 /dev/sdg1=
 
-Label the system partition. If it were on =/dev/sda1/=:
+On both Monikop's and Pokinom's host, label the system root
+partition. If it were on =/dev/sda1/, that's e.g.=:
 
 =e2label /dev/sda1 root=
 
-Label the swap partition. If it happens to be on /dev/sda5:
+On both Monikop's and Pokinom's host, label the swap partition. If it
+happens to be on /dev/sda5, e.g.: 
 
 =swapoff=
 
@@ -63,13 +69,14 @@ Label the swap partition. If it happens to be on /dev/sda5:
  
 *** Mount Points
 
-Create mount points, one for each removable disk:
+On both Monikop's and Pokinom's host, create mount points, one for
+each removable disk: 
 
-=mkdir -p /media/disk_{01,02,03}= etc.
+=mkdir -p /media/disk_{01,02,03,04...}=
 
-=chmod a+rx /media/disk_{01,02,03}= etc.
+=chmod a+rx /media/disk_{01,02,03,04...}=
 
-In =/etc/fstab=, make use of the disk labels:
+In =/etc/fstab= on both Monikop's and Pokinom's host, make use of the disk labels:
 
 <src lang="conf">
 ## System partitions ###
@@ -79,10 +86,11 @@ LABEL=swap     none            swap  sw                         0  0
 LABEL=disk_01  /media/disk_01  ext3  rw,user,auto               0  0
 LABEL=disk_02  /media/disk_02  ext3  rw,user,auto               0  0
 LABEL=disk_03  /media/disk_03  ext3  rw,user,auto               0  0
+LABEL=disk_04  /media/disk_04  ext3  rw,user,auto               0  0
 # etc.
 </src>
 
-Put each removable disk in and make it writable:
+Put each removable disk in and make it writable; e.g.:
 
 =mount /media/disk_01=
 
@@ -90,8 +98,9 @@ Put each removable disk in and make it writable:
  
 ** Maintain Bootability
 
-Make sure the system boots actually from its system disk rather than from
-some of the removable ones. Change =/boot/grub/menu.lst= where it says
+On both Monikop's and Pokinoms host, make sure the system boots
+actually from its system disk rather than from some of the removable
+ones. Change =/boot/grub/menu.lst= where it says
 
 <code># kopt=root=...</code>:
 
@@ -118,21 +127,6 @@ and call
 =update-grub=
 
 
-** Automatic Login
-
-=/etc/inittab=: change line which says
-
-<src lang="conf">
-1:2345:respawn:/sbin/getty 38400 tty1
-</src>
-
-into
-
-<src lang="conf">
-1:2345:respawn:/sbin/mingetty --autologin m-operator --noclear tty1
-</src>
-
-
 ** Install Monikop and Pokinom
 
 Create a user on both Monikop's and Pokinom's machine. For
@@ -143,7 +137,7 @@ Get Monikop (and Pokinom); from m-operator's home directory say:
 =git-clone (FIXME: repo here)=
 
 Copy =monikop.config.example= to =monikop.config= and
-=pokinom.config.example= to =pokinom.config= and
+=pokinom.config.example= to =pokinom.config, respectively,= and
 adapt them according to your needs. Both have helpful comments,
 and both are perl code, so be careful and keep the interpunction
 in place. 
@@ -170,16 +164,16 @@ Things you want to change for Monikop in =monikop.config=:
     );
 </src>
 
-=%sources= are the data producing Sources in a format rsync
+=%sources= are the data producing Sources in a format Rsync
 understands, together with a source-specific directory name where data
 of the respective Source goes. Those directory names can be equal for
 several Sources if all filenames in the payload are certain to be
 unique.
 
-=@usable_mount_points= are mount points (directories) you set up for your
+=@usable_mount_points= are the mount points (directories) you set up earlier for your
 removable disks.
    
-Things you want to change accordingly for Pokinom in =pokinom.config=:
+Accordingly, for Pokinom in =pokinom.config, you should edit=:
 
 <src lang="perl">
 # Possible mount points.
@@ -189,10 +183,26 @@ Things you want to change accordingly for Pokinom in =pokinom.config=:
     '/media/disk_3',
     );
 </src>
+...
+<src lang="perl">
+# Data destination.
+$destination =
+    'big-server::incoming/NEW_DATA';
 
-*** Autostart
+# Credentials of the remote rsync server. String, or 0 if not used.
+$rsync_username =
+    'm-operator'
+    ;
+$rsync_password =
+    'sEcReT'
+    ;
+</src>
 
-Append to =~/.profile= (create if necessary):
+
+*** Automatic Program Start
+
+Append to
+=/home/m-operator/.profile= (create it if necessary):
 
 <src lang="bash">
 /home/m-operator/monikop/monikop
@@ -213,12 +223,28 @@ If necessary, specify path to config file, e.g.
 
 *** Setup Sudo
 
-Authorize m-operator to shut down computer.
+On both Monikop's and Pokinom's host authorize m-operator to shut down computer.
 Use =visudo= to change =/etc/sudoers=; add:
 
 <src lang="conf">
-messung ALL=(ALL) NOPASSWD: /sbin/halt -p
-messung ALL=(ALL) NOPASSWD: /sbin/reboot
+m-operator ALL=(ALL) NOPASSWD: /sbin/halt -p
+m-operator ALL=(ALL) NOPASSWD: /sbin/reboot
+</src>
+
+
+** Automatic Login
+
+On both Monikop's and Pokinom's host, change the line in
+=/etc/inittab= line which says 
+
+<src lang="conf">
+1:2345:respawn:/sbin/getty 38400 tty1
+</src>
+
+into
+
+<src lang="conf">
+1:2345:respawn:/sbin/mingetty --autologin m-operator --noclear tty1
 </src>
 
 
@@ -240,7 +266,7 @@ pid file=/var/run/rsyncd.pid
     transfer logging = false
 </src>
 
-In =/etc/default/rsync=, change a line from
+In =/etc/default/rsync=, change the line
 
 <src lang="conf">
 RSYNC_ENABLE = false
@@ -280,12 +306,13 @@ Configure service rsync for automatic start.
 
 ** Network setup
 
-Depending on the amount of data to transfer, consider putting a dedicated NIC for each Source into Monikop's machine.
-In this case, you should provide for non-overlapping
-subnets. [[http://jodies.de/ipcalc][IP-Calculator]] may be helpful.
+Depending on the amount of data to transfer, consider putting a
+dedicated NIC for each Source into Monikop's machine.  In this case,
+you should provide for non-overlapping subnets. [[http://jodies.de/ipcalc][IP-Calculator]] may be
+helpful.
+
 
 *** Monikop
-
 
 **** Name the Sources
 
@@ -343,8 +370,8 @@ iface eth5 inet static
 
 *** Data Sources
 
+Use =/etc/hosts= as with Monikop. For Windows, it's =%SystemRoot%\system32\drivers\etc\hosts=.
 
-Use =/etc/hosts= as for Monikop. For Windows, it's =%SystemRoot%\system32\drivers\etc\hosts=.
 
 **** Source's NIC
 
@@ -370,57 +397,76 @@ iface eth1 inet static
 For Windows, configure your network settings accordingly.
 
 
-** Pokinom
-** fsck-pokinom
-** Data destination
+*** Pokinom
 
-+** Rsync server installation
+Pokinom's network settings don't need any special treatment. Just
+integrate it into the office LAN Destination is connected to.
 
-- Linux
+** Data Destination
 
-=/etc/default/rsync=:
-Change line from
-<src lang="conf">
-RSYNC_ENABLE = false
-</src>
-to
-<src lang="conf">
-RSYNC_ENABLE = true
-</src>
-=/etc/rsyncd.conf:=
+*** Rsync Server on Destination
+
+Install package rsync.
+
+Adapt =/etc/rsyncd.conf=, e.g.:
 
 <src lang="conf">
- gid = str_db1_media
- use chroot = yes
- max connections = 0
- pid file = /var/run/rsyncd.pid
- 
- [media]
-         path = /mnt/./data0
-         list = no
-         comment = Pokinom only (requires authentication)
-         read only = no
-         incoming chmod = g+r,g+w
-         write only = yes
-         # Pokinom's IP:
-         hosts allow = 192.168.180.120
-         auth users = m-operator
-         secrets file = /etc/rsyncd.secrets
+gid = data_receiving_group
+use chroot = yes
+max connections = 0
+pid file = /var/run/rsyncd.pid
+
+[incoming]
+        path = /mnt/./raid_0
+        list = no
+        comment = Pokinom only; requires authentication
+        read only = no
+        incoming chmod = g+r,g+w
+        write only = yes
+        # Pokinom's IP:
+        hosts allow = 192.168.180.120
+        auth users = m-operator
+        secrets file = /etc/rsyncd.secrets
 </src>
 
-=/etc/rsyncd.secrets=:
+=/etc/rsyncd.secrets= contains Rsync's credentials which must
+correspond to settings =$rsync_passwd= and =$rsync_username= in =pokinom.config=:
 
 <src lang="conf">
 m-operator:seCreT
 </src>
 
+In =/etc/default/rsync=, change the line
 
-- Windows
+<src lang="conf">
+RSYNC_ENABLE = false
+</src>
 
-install cwrsync:
-http://sourceforge.net/projects/sereds/files/cwRsync/4.0.3/cwRsyncServer_4.0.3_Installer.zip/download
-rsyncd.conf
-Service rsync: autostart
+to
+
+<src lang="conf">
+RSYNC_ENABLE = true
+</src>
+
+Start rsync server:
+
+=/etc/initd/rsync start=
+
+or reboot.
+
+With the above, rsync puts the payload it receives into
+=/mnt/raid_0/NEW_DATA/=. ("=NEW_DATA=" was set with
+=$destination= in =pokinom.config=.)
+
+=NEW_DATA/= and everything inside belongs to user
+nobody and group data_receiving_group.
+
+If on Destination you can't do without Windows, install 
+[[http://sourceforge.net/projects/sereds/files/cwRsync/4.0.3/cwRsyncServer_4.0.3_Installer.zip/download][cwRsync]],
+configure its =rsyncd.conf= accordingly, and set service rsync to
+automatic start.
+
+** fsck-pokinom
 
 * Usage
 
@@ -431,6 +477,10 @@ Service rsync: autostart
      or data source(s)
    - Pokinom needs sufficient amount of free space on sink; must be
      rebooted once this is not the case.
+   - File permissions in Destination's receiving directory must not be
+     changed such that the rsync server is prevented from modifying.
+     Best practice is to move them out of this directory prior to any
+     processing. 
    - fsck-monikop: to be run by root
    - Backup functionality: data remains on disks until re-inserted in
      Monikop. Names in use.
@@ -442,4 +492,31 @@ Service rsync: autostart
   - May ignore empty dirs (really?)
    
 * License
+
+Copyright 2010 Bert Burgemeister. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+   2. Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTERS
+``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGE.
 

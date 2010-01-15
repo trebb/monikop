@@ -28,7 +28,7 @@ $path_under_mount_point_being_deleted =
     'being_deleted'
     ;
 
-# Data sink.
+# Data destination.
 $destination =
     'big-server::incoming/NEW_DATA';
 
