@@ -1,0 +1,27 @@
+#title Monikop and Pokinom
+#subtitle rsync between unconnected hosts
+#footer Copyright <literal>&copy;</literal>  2010 ¦ [[mailto:trebb@users.berlios.de?subject=MONIKOP ][Bert Burgemeister]]
+
+
+* Usage
+
+   - You have to be able to tell from your data if it's complete.
+   - Monikop shows which disks have data and therefore should be
+     transferred to Pokinom.
+   - Monikop keeps starting over until shutdown or until disappearance
+     or data source(s)
+   - Pokinom needs sufficient amount of free space on sink; must be
+     rebooted once this is not the case.
+   - File permissions in Destination's receiving directory must not be
+     changed such that the rsync server is prevented from modifying.
+     Best practice is to move them out of this directory prior to any
+     processing. 
+   - fsck-monikop: to be run by root
+   - Backup functionality: data remains on disks until re-inserted in
+     Monikop. Names in use.
+
+* Bugs
+
+  - Data must not contain any directories called $rsync_partial_dir_name
+  - Doesn't reflect disappearance of files on sources
+  - May ignore empty dirs (really?)
