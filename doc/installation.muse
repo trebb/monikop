@@ -19,14 +19,18 @@ For Debian, use
 
  - to run the tests: bc, time.
 
+ - Both Monikop and Pokinom run on text console; you don't need
+   anything like Gnome, KDE or even X.
 
 
 ** Prepare Removable Disks
 
+Put sticker labels with disk names on your removable disks.
+
 *** File Systems
 
-Create Filesystems with labels on the removable disks. Example
-(suppose a removable disk tagged =disk_10= is attached to =/dev/sdg1=): 
+Create labelled filesystems on the removable disks. Example
+(suppose a removable with a sticker label "=disk_10=" on its case is attached to =/dev/sdg1=): 
 
 =# mke2fs -j -L disk_10 /dev/sdg1=
 
@@ -267,7 +271,7 @@ helpful.
 
 **** Name the Sources
 
-#/etc/hosts
+#etc_hosts
 Example for =/etc/hosts=:
 
 <src lang="conf">
@@ -322,7 +326,7 @@ iface eth5 inet static
 
 *** Data Sources
 
-Use [[installation#/etc/hosts][/etc/hosts]] as with Monikop. For Windows, it's =%SystemRoot%\system32\drivers\etc\hosts=.
+Use [[installation#etc_hosts][/etc/hosts]] as with Monikop. For Windows, it's =%SystemRoot%\system32\drivers\etc\hosts=.
 
 
 **** Source's NIC
@@ -418,4 +422,5 @@ If on Destination you can't do without Windows, install
 configure its =rsyncd.conf= accordingly, and set service rsync to
 automatic start.
 
-** fsck-pokinom
+; TODO: net topology for Monikop, for Pokinom
+

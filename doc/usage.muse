@@ -1,27 +1,67 @@
 #title Monikop and Pokinom
 #subtitle rsync between unconnected hosts
-#footer Copyright <literal>&copy;</literal>  2010 ¦ [[mailto:trebb@users.berlios.de?subject=MONIKOP ][Bert Burgemeister]]
-
+#author Bert Burgemeister
 
 * Usage
 
+** Monikop
+
+Put removable disks into Monikop's host on Rover and switch it on. Immediately,
+Monikop starts pulling data from Sources it can reach. Monikop will
+notice additional Sources that become reachable later and will start
+pulling data there as well.
+
+For each Source, Monikop keeps starting over to see if there is new
+data. Only Monikop's shutdown or the disappearance of the data Source
+will end this cycle.
+
+One removable disk is sufficient for Monikop's correct
+operation; but if speed is important, putting in as many disks as
+there are data Sources may be beneficial as Monikop uses them in parallel.
+
+To end a session, press [F3] to shut down Monikop, and remove the
+disks. Monikop's display shows which disks are not yet used so you
+can avoid carrying empty disks around.
+
+
+
+** Pokinom
+
+Put removable disks into Pokinom's host in office and switch it
+on. Immediately, Pokinom starts pushing data to Destination. You
+should wait until it's finished, otherwise files, even if copied to
+Destination, can't be deleted from their removable disks by Monikop.
+
+Press [F9] to toggle wheather or not Pokinom shuts down when finished.
+
+File permissions in Destination's receiving directory must not be
+changed in a way that prevents the rsync server from modifying.
+Best practice is to move anything out of this directory prior to any
+processing. 
+
+Pokinom needs a sufficient amount of free space on Destination; it
+must be rebooted once this hasn't been the case. 
+
+
    - You have to be able to tell from your data if it's complete.
-   - Monikop shows which disks have data and therefore should be
-     transferred to Pokinom.
-   - Monikop keeps starting over until shutdown or until disappearance
-     or data source(s)
-   - Pokinom needs sufficient amount of free space on sink; must be
-     rebooted once this is not the case.
-   - File permissions in Destination's receiving directory must not be
-     changed such that the rsync server is prevented from modifying.
-     Best practice is to move them out of this directory prior to any
-     processing. 
-   - fsck-monikop: to be run by root
+   - data transferred, but to ignore
    - Backup functionality: data remains on disks until re-inserted in
      Monikop. Names in use.
+
+
+
+
+** fsck-pokinom
+   - fsck-pokinom: to be run by root
+
 
 * Bugs
 
   - Data must not contain any directories called $rsync_partial_dir_name
   - Doesn't reflect disappearance of files on sources
   - May ignore empty dirs (really?)
+  - During copying, obsolete versions of some files may temporarily be
+    on destination (after interrupted transfer of files which then have
+    grown larger)
+   - frequent power cuts (as opposed to normal shutdown operations) may
+     compromise efficiency in terms of disk usage.

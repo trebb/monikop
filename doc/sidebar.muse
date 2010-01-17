@@ -1,5 +1,5 @@
 
- - [[monikop][Home]]
+ - [[index][Introduction]]
  - [[installation][Installation]]
 
    [[installation][Installation with a rather long heading]]
