@@ -289,11 +289,13 @@ sub rsync_someplace {
     $success;
 }
 
-sub restore_terminal_and_die {
-    endwin(); # Leave a usable terminal.
-    die "Signal $_[0] caught";
-}
-$SIG{TERM} = 'restore_terminal_and_die';
+my $display_thread;
+
+$SIG{TERM} = sub {
+    $display_thread->kill('TERM')->join;
+    die "Caught signal $_[0]";
+};
+
 
 # Preparations done; sleeves up!
 
@@ -422,129 +424,139 @@ if ($debug == 1) {
     sleep;
 } else {
 # Let the workers toil; talk to the user.
-    my $redraw_window_count = 0;
-    initscr();
-    cbreak();
-    noecho();
-    curs_set(0);
-    my $window_left = newwin(LINES() -8, 29, 0, 0);
-    my $window_right = newwin(LINES() - 8, 50, 0, 29);
-    my $window_center = newwin(5, 79, LINES() - 8, 0);
-    my $window_bottom = newwin(3, 79, LINES() - 3, 0);
-    $window_bottom->keypad(1);
-    $window_bottom->nodelay(1);
-    start_color;
-    init_pair 1, COLOR_MAGENTA, COLOR_BLACK;
-    init_pair 2, COLOR_RED, COLOR_BLACK;
-    init_pair 3, COLOR_CYAN, COLOR_BLACK;
-    init_pair 4, COLOR_YELLOW, COLOR_BLACK;
-    my $MAGENTA = COLOR_PAIR(1);
-    my $RED = COLOR_PAIR(2);
-    my $CYAN = COLOR_PAIR(3);
-    my $YELLOW = COLOR_PAIR(4);
     
-    while (1) {
-	$window_left->attron($CYAN);
-	$window_left->box(0, 0);
-	$window_left->addstr(0, 6, "Data Destinations");
-	$window_left->attroff($CYAN);
-	my $destinations_format = "%-18s%-6s%-3s";
-	$window_left->attron(A_BOLD);
-	$window_left->addstr(1, 1,
-			     sprintf($destinations_format,
-				     "Removable", "Fresh", "Usg"));
-	$window_left->addstr(2, 1,
-			     sprintf($destinations_format,
-				     "Disk", "Data?", "%"));
-	$window_left->attroff(A_BOLD);
-	my $destination_usage;
-	my $line_number = 3;
-	map {
-	    if ($destination_usages{$_}) {
-		$window_left->attron($RED);
-		$destination_usage = "yes";
-	    } else {
-		$window_left->attron($CYAN);
-		$destination_usage = "no";
-	    }
-	    $window_left->addstr($line_number, 1,
-				 sprintf($destinations_format,
-					 substr($_, -17, 17),
-					 substr($destination_usage, -6, 6),
-					 substr($destination_usage_ratios{$_} ?
-                                                $destination_usage_ratios{$_} :
-                                                "?",
-                                                -3, 3)));
-	    ++ $line_number;
-	    $window_left->attroff($RED);
-	    $window_left->attroff($CYAN);
-	} sort @destination_roots;
-	
-	$window_right->attron($MAGENTA);
-	$window_right->box(0,0);
-	$window_right->addstr(0, 19, "Data Sources");
-	$window_right->attroff($MAGENTA);
-	my $sources_format = "%-15s%-11s%-9s%-13s";
-	$window_right->attron(A_BOLD);
-	$window_right->addstr(1, 1,
-			      sprintf ($sources_format,
-				       "Data", "", "To", "Writing"));
-	$window_right->addstr(2, 1,
-			      sprintf ($sources_format,
-				       "Source", "Speed", "Do", "To"));
-	$window_right->attroff(A_BOLD);
-	$line_number = 3;
-	$window_right->attron($MAGENTA);
-	map {
-	    my $source = $_;
-	    my $current_destination = '?';
-	    if (exists $destination_source_is_writing_to{$source}) {
-		$current_destination =
-                    $destination_source_is_writing_to{$source};
-	    }
-	    if ($reachable{$source}) { 
-		$window_right->addstr($line_number, 1,
-				      sprintf($sources_format,
-					      substr($source_roots{$source},
-                                                     0, 15),
-					      substr($speeds{$source}, 0, 11),
-					      substr($progress_ratios{$source},
-                                                     -9, 9),
-					      substr($current_destination,
-                                                     -13, 13)));
-		++ $line_number;
-	    }
-	    $window_right->addstr($line_number, 1,
-				  sprintf($sources_format, "", "", "", ""));
-	} sort (keys %source_roots);
-	$window_right->attroff($MAGENTA);
-	
-	$line_number = 0;
-	map {
-	    $window_center->addstr($line_number, 2, $_);
-	    ++ $line_number;
-	} @monikop_banner;
-	$window_center->move(0, 0);
+    $display_thread = async {
+        $SIG{TERM} = sub {
+            endwin(); # Leave a usable terminal.
+            threads->exit()
+        };
 
-	$window_bottom->box(0,0);
-	$window_bottom->attron(A_BOLD);
-	$window_bottom->addstr(1, 3, "[F3]: Turn off computer.                         [F6]: Restart computer.");
-	$window_bottom->attroff(A_BOLD);
-	
-	$window_left->noutrefresh();
-	$window_right->noutrefresh();
-	$window_bottom->noutrefresh();
-	$window_center->noutrefresh(); # Last window gets the cursor.
-	act_on_keypress($window_bottom->getch());
-	sleep 2;
-	if (++ $redraw_window_count > 5) {
-	    $redraw_window_count = 0;
-            clearok(1);
-	}
-        doupdate();
-    }
+        my $redraw_window_count = 0;
+        initscr();
+        cbreak();
+        noecho();
+        curs_set(0);
+        my $window_left = newwin(LINES() -8, 29, 0, 0);
+        my $window_right = newwin(LINES() - 8, 50, 0, 29);
+        my $window_center = newwin(5, 79, LINES() - 8, 0);
+        my $window_bottom = newwin(3, 79, LINES() - 3, 0);
+        $window_bottom->keypad(1);
+        $window_bottom->nodelay(1);
+        start_color;
+        init_pair 1, COLOR_MAGENTA, COLOR_BLACK;
+        init_pair 2, COLOR_RED, COLOR_BLACK;
+        init_pair 3, COLOR_CYAN, COLOR_BLACK;
+        init_pair 4, COLOR_YELLOW, COLOR_BLACK;
+        my $MAGENTA = COLOR_PAIR(1);
+        my $RED = COLOR_PAIR(2);
+        my $CYAN = COLOR_PAIR(3);
+        my $YELLOW = COLOR_PAIR(4);
+
+        while (1) {
+            $window_left->attron($CYAN);
+            $window_left->box(0, 0);
+            $window_left->addstr(0, 6, "Data Destinations");
+            $window_left->attroff($CYAN);
+            my $destinations_format = "%-18s%-6s%-3s";
+            $window_left->attron(A_BOLD);
+            $window_left->addstr(1, 1,
+                                 sprintf($destinations_format,
+                                         "Removable", "Fresh", "Usg"));
+            $window_left->addstr(2, 1,
+                                 sprintf($destinations_format,
+                                         "Disk", "Data?", "%"));
+            $window_left->attroff(A_BOLD);
+            my $destination_usage;
+            my $line_number = 3;
+            map {
+                if ($destination_usages{$_}) {
+                    $window_left->attron($RED);
+                    $destination_usage = "yes";
+                } else {
+                    $window_left->attron($CYAN);
+                    $destination_usage = "no";
+                }
+                $window_left->addstr($line_number, 1,
+                                     sprintf($destinations_format,
+                                             substr($_, -17, 17),
+                                             substr($destination_usage, -6, 6),
+                                             substr($destination_usage_ratios{$_} ?
+                                                    $destination_usage_ratios{$_} :
+                                                    "?",
+                                                    -3, 3)));
+                ++ $line_number;
+                $window_left->attroff($RED);
+                $window_left->attroff($CYAN);
+            } sort @destination_roots;
+
+            $window_right->attron($MAGENTA);
+            $window_right->box(0,0);
+            $window_right->addstr(0, 19, "Data Sources");
+            $window_right->attroff($MAGENTA);
+            my $sources_format = "%-15s%-11s%-9s%-13s";
+            $window_right->attron(A_BOLD);
+            $window_right->addstr(1, 1,
+                                  sprintf ($sources_format,
+                                           "Data", "", "To", "Writing"));
+            $window_right->addstr(2, 1,
+                                  sprintf ($sources_format,
+                                           "Source", "Speed", "Do", "To"));
+            $window_right->attroff(A_BOLD);
+            $line_number = 3;
+            $window_right->attron($MAGENTA);
+            map {
+                my $source = $_;
+                my $current_destination = '?';
+                if (exists $destination_source_is_writing_to{$source}) {
+                    $current_destination =
+                        $destination_source_is_writing_to{$source};
+                }
+                if ($reachable{$source}) { 
+                    $window_right->addstr($line_number, 1,
+                                          sprintf($sources_format,
+                                                  substr($source_roots{$source},
+                                                         0, 15),
+                                                  substr($speeds{$source}, 0, 11),
+                                                  substr($progress_ratios{$source},
+                                                         -9, 9),
+                                                  substr($current_destination,
+                                                         -13, 13)));
+                    ++ $line_number;
+                }
+                $window_right->addstr($line_number, 1,
+                                      sprintf($sources_format, "", "", "", ""));
+            } sort (keys %source_roots);
+            $window_right->attroff($MAGENTA);
+
+            $line_number = 0;
+            map {
+                $window_center->addstr($line_number, 2, $_);
+                ++ $line_number;
+            } @monikop_banner;
+            $window_center->move(0, 0);
+
+            $window_bottom->box(0,0);
+            $window_bottom->attron(A_BOLD);
+            $window_bottom->addstr(1, 3, "[F3]: Turn off computer.                         [F6]: Restart computer.");
+            $window_bottom->attroff(A_BOLD);
+
+            $window_left->noutrefresh();
+            $window_right->noutrefresh();
+            $window_bottom->noutrefresh();
+            $window_center->noutrefresh(); # Last window gets the cursor.
+            act_on_keypress($window_bottom->getch());
+            sleep 2;
+            if (++ $redraw_window_count > 5) {
+                $redraw_window_count = 0;
+                clearok(1);
+            }
+            doupdate();
+        }
     endwin();
+    };
 }
+
+sleep;
 
 # Tidy up. (Except we don't reach this.)
 map {
@@ -556,5 +568,7 @@ map {
 } keys %source_roots;
 
 $destinations_monitor_thread->join if $destinations_monitor_thread;
+
+$display_thread->join if $display_thread;
 
 __END__
