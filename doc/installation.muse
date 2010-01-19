@@ -8,9 +8,7 @@
 We assume Debian GNU/Linux here, but any distribution should
 work. Adapt installation instructions accordingly.
 
-** Packages
-
-For Debian, use
+Debian Packages needed:
 
  - to install from a git repository: git-core;
 
@@ -78,7 +76,7 @@ Put each removable disk in and make it writable; e.g.:
 
 =# chmod a+rwx /media/disk_01=
  
-** Maintain Bootability
+*** Maintain Bootability
 
 On both Monikop's and Pokinoms host, make sure the operating system boots
 actually from its system disk rather than from some of the removable
@@ -107,7 +105,8 @@ and call
 =# update-grub=
 
 
-** Install Monikop and Pokinom
+#Configure_Monikop_and_Pokinom
+** Configure Monikop and Pokinom
 
 Create a user on both Monikop's and Pokinom's machine. For
 description's sake, we assume they're called m-operator.
@@ -139,6 +138,7 @@ For Monikop, change in [[installation#monikop.config][monikop.config]] at least:
 
    
 #pokinom.config
+
 *** =pokinom.config=
 
 <include file="../pokinom.config.example" markup="src" lang="perl">
@@ -187,7 +187,7 @@ m-operator ALL=(ALL) NOPASSWD: /sbin/reboot
 </src>
 
 
-** Automatic Login
+*** Automatic Login
 
 On both Monikop's and Pokinom's host, change the line in
 =/etc/inittab= that looks like
@@ -203,7 +203,7 @@ into
 </src>
 
 
-
+#Configure_Rsync_on_Sources
 ** Configure Rsync on Sources
 
 Install package rsync.
@@ -259,7 +259,8 @@ logfile = rsyncd.log
 Configure service rsync for automatic start.
 
 
-** Network setup
+#Network_Setup
+** Network Setup
 
 Depending on the amount of data to transfer, consider putting a
 dedicated NIC for each Source into Monikop's machine.  In this case,
@@ -358,6 +359,8 @@ For Windows, configure your network settings accordingly.
 Pokinom's network settings don't need any special treatment. Just
 integrate it into the office LAN Destination is connected to.
 
+
+#Data_Destination
 ** Data Destination
 
 *** Rsync Server on Destination

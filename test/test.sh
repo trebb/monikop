@@ -218,77 +218,77 @@ start_rsyncd
 ### Run tests: Monikop
 ##########################
 
-run_test 0 test_monikop_simple "Simple run."
-
-rm -rf $MNT/0{3,4}/* $LOG
-
-chmod a-w,a-x $MNT/0{3,4}
-run_test 1 test_monikop_simple "Unwritable destination"
-chmod a+w,a+x $MNT/0{3,4}
-run_test 0 test_monikop_simple "Unwritable destination"
-
-#kill_rsyncd; exit
-
-rm -rf $MNT/0{3,4}/* $LOG
-
-run_test 0 test_monikop_simple_late_sources "Simple run, sources coming up late."
-
-mv $MNT/03/measuring_data $MNT/03/backed_up
-mv $MNT/04/measuring_data $MNT/04/backed_up
-rm -rf $LOG
-
-run_test 0 test_monikop_simple "Simple run, deletion."
-
-rm -rf $MNT/0{3,4}/* $LOG
-
-run_test 1 test_monikop_short_2 "Repeated interruption."
-run_test 1 test_monikop_short_2 "Repeated interruption (may pass unexpectedly due to test timing)."
-run_test 0 test_monikop_simple_2 "Repeated interruption."
-
-mv $MNT/03/measuring_data $MNT/03/backed_up
-mv $MNT/04/measuring_data $MNT/04/backed_up
-mv $MNT/05/measuring_data $MNT/05/backed_up
-rm -rf $LOG
-
-run_test 1 test_monikop_short_2 "Repeated interruption, deletion."
-run_test 1 test_monikop_short_2 "Repeated interruption, deletion (may pass unexpectedly due to test timing)."
-run_test 0 test_monikop_simple_2 "Repeated interruption, deletion."
-
-rm -rf $MNT/0{3,4,5}/* $LOG
-
-run_test 1 test_monikop_overflow 
-
-rm -rf $MNT/0{3,4}/* $LOG
-
-run_test 0 test_monikop_no_destination "No destination available."
-run_test 0 test_monikop_no_source "No destination available."
-
-rm -rf $MNT/0{3,4}/* $LOG
-
-run_test 1 test_monikop_short_kill_rsync_first "Rsync killed."
-ps aux | grep rsync
-run_test 0 test_monikop_simple_2 "Rsync killed."
-
-rm -rf $MNT/0{3,4,5}/* $LOG
-
-run_test 1 test_monikop_short_cut_sources "Connection to source destroyed."
-run_test 0 test_monikop_simple_2 "Connection to source destroyed."
-
-rm -rf $MNT/0{3,4,5}/* $LOG
-
-
-
-# # unfinished: Pokinom must recover from this mess
 # run_test 0 test_monikop_simple "Simple run."
-# rm $MNT/01/data/f3
-# cat $MNT/01/data/f1 >> $MNT/01/data/f2
-# run_test 1 test_monikop_simple "Repeated run, file grown too large."
-# rm -f $MNT/0{3,4}/measuring_data/f3
-# run_test 0 test_monikop_simple "Repeated run, file grown too large."
-# rm $MNT/01/data/f2
-# for i in f2 f3; do
-#     make_test_file $MNT/01/data/$i 25000 200703250845.33
-# done
+# 
+# rm -rf $MNT/0{3,4}/* $LOG
+# 
+# chmod a-w,a-x $MNT/0{3,4}
+# run_test 1 test_monikop_simple "Unwritable destination"
+# chmod a+w,a+x $MNT/0{3,4}
+# run_test 0 test_monikop_simple "Unwritable destination"
+# 
+# #kill_rsyncd; exit
+# 
+# rm -rf $MNT/0{3,4}/* $LOG
+# 
+# run_test 0 test_monikop_simple_late_sources "Simple run, sources coming up late."
+# 
+# mv $MNT/03/measuring_data $MNT/03/backed_up
+# mv $MNT/04/measuring_data $MNT/04/backed_up
+# rm -rf $LOG
+# 
+# run_test 0 test_monikop_simple "Simple run, deletion."
+# 
+# rm -rf $MNT/0{3,4}/* $LOG
+# 
+# run_test 1 test_monikop_short_2 "Repeated interruption."
+# run_test 1 test_monikop_short_2 "Repeated interruption (may pass unexpectedly due to test timing)."
+# run_test 0 test_monikop_simple_2 "Repeated interruption."
+# 
+# mv $MNT/03/measuring_data $MNT/03/backed_up
+# mv $MNT/04/measuring_data $MNT/04/backed_up
+# mv $MNT/05/measuring_data $MNT/05/backed_up
+# rm -rf $LOG
+# 
+# run_test 1 test_monikop_short_2 "Repeated interruption, deletion."
+# run_test 1 test_monikop_short_2 "Repeated interruption, deletion (may pass unexpectedly due to test timing)."
+# run_test 0 test_monikop_simple_2 "Repeated interruption, deletion."
+# 
+# rm -rf $MNT/0{3,4,5}/* $LOG
+# 
+# run_test 1 test_monikop_overflow 
+# 
+# rm -rf $MNT/0{3,4}/* $LOG
+# 
+# run_test 0 test_monikop_no_destination "No destination available."
+# run_test 0 test_monikop_no_source "No destination available."
+# 
+# rm -rf $MNT/0{3,4}/* $LOG
+# 
+# run_test 1 test_monikop_short_kill_rsync_first "Rsync killed."
+# ps aux | grep rsync
+# run_test 0 test_monikop_simple_2 "Rsync killed."
+# 
+# rm -rf $MNT/0{3,4,5}/* $LOG
+# 
+# run_test 1 test_monikop_short_cut_sources "Connection to source destroyed."
+# run_test 0 test_monikop_simple_2 "Connection to source destroyed."
+# 
+# rm -rf $MNT/0{3,4,5}/* $LOG
+
+
+
+# unfinished: Pokinom must recover from this mess
+run_test 0 test_monikop_simple "Simple run."
+rm $MNT/01/data/f3
+cat $MNT/01/data/f1 >> $MNT/01/data/f2
+run_test 1 test_monikop_simple "Repeated run, file grown too large."
+rm -f $MNT/0{3,4}/measuring_data/f3
+run_test 0 test_monikop_simple "Repeated run, file grown too large."
+rm $MNT/01/data/f2
+for i in f2 f3; do
+    make_test_file $MNT/01/data/$i 25000 200703250845.33
+done
 
 
 kill_rsyncd
