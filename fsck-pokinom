@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 # Where to read local configuration:
-my $pokinom_config = '~/monikop/pokinom.config';
+my $pokinom_config = 'pokinom.config';
 if ($ARGV[0]) {
     $pokinom_config = $ARGV[0]
 }
@@ -11,7 +11,7 @@ if ($ARGV[0]) {
 ########################################
 # Settings
 ########################################
-# Possible mount points
+# Possible mount points:
 my @usable_mount_points;
 
 # Other settings from $pokinom_config, not used here.
@@ -30,33 +30,23 @@ my $rsync_partial_dir_name;
 # Local changes to the above.
 eval `cat $pokinom_config`;
 
-# Return sorted intersection of arrays which are supposed to have unique
-# elements.
-sub intersection {
-    my @intersection = ();
-    my %count = ();
-    my $element;
-    foreach $element (@_) { $count{$element}++ }
-    foreach $element (keys %count) {
-	push @intersection, $element if $count{$element} > 1;
-    }
-    sort @intersection;
-}
-
-if (qx(whoami) eq "bertb\n") {
+if (qx(whoami) eq "root\n") {
     qx(killall pokinom &> /dev/null);
 # Find checkable (i.e. mounted) disks
-    my @raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
-    chomp @raw_mount_points;
-    my @sources = intersection @raw_mount_points, @usable_mount_points;
-    print "SOURCES:\n";
-    print @sources;
+    my @mount_output = qx/mount/;
+    my %devices;
     map {
-        print "FIXME: no action yet.";
-#        my $source = $_;
-#        umount
-#        qx(umount /dev/disk/by-label/Platte_* && fsck -fp /dev/disk/by-label/Platte_*);
-    } @sources;
+	my ($device, $mount_point) = /(\S+) on (.*) type .*/;
+	map {
+	    if ($_ eq $mount_point) {
+		$devices{$mount_point} = $device;
+	    }
+	} @usable_mount_points;
+    } @mount_output;
+    map {
+	my $device = $devices{$_};
+        qx(umount $device && fsck -fp $device);
+    } keys %devices;
 } else {
     print "$0: only root can run this.\n";
 }

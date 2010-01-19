@@ -181,14 +181,16 @@ sub safe_read {
 }
 
 my @destination_roots;
-my %rsync_worker_thread;
 my %rsync_outfun;
 my %rsync;
 my %rsync_exec_form;
 my %rsync_dir;
 my %rsync_dir_exec_form;
 my %rsync_dir_err_form;
+my %rsync_worker_thread;
 my %being_deleted_thread;
+my $destinations_monitor_thread;
+my $display_thread;
 
 sub rsync_preparation_form {
     my ($source) = @_;
@@ -297,8 +299,6 @@ sub rsync_someplace {
     $success;
 }
 
-my $display_thread;
-
 $SIG{TERM} = sub {
     $display_thread->kill('TERM')->join;
     die "Caught signal $_[0]";
@@ -333,7 +333,9 @@ map {
 	qx(rm -rf $p_i_d_being_deleted);
     }
     qx(mv -f $p_i_d_backed_up $p_i_d_being_deleted 2> /dev/null);
-    $being_deleted_thread{$_} = async { qx(rm -rf $p_i_d_being_deleted); };
+    $being_deleted_thread{$_} = async {
+	$SIG{TERM} = sub { threads->exit() };
+	qx(rm -rf $p_i_d_being_deleted); };
 } @destination_roots;
 
 if (scalar @destination_roots) {
@@ -343,6 +345,7 @@ if (scalar @destination_roots) {
 	push (@destination_roots, shift (@destination_roots)); 
 	$progress_ratios{$_} = "?"; # Initialize for UI
 	$rsync_worker_thread{$_} = async {
+	    $SIG{TERM} = sub { threads->exit() };
 	    while (1) {
 		my $rsync_log_name = $rsync_log_prefix . $_;
 		my $finished_name = $finished_prefix . $_;
@@ -407,7 +410,8 @@ if (scalar @destination_roots) {
 }
 
 # Provide some reassuring user information:
-my $destinations_monitor_thread = async {
+$destinations_monitor_thread = async {
+    $SIG{TERM} = sub { threads->exit() };
     while () {
 	map {
 	    my $destination_root = $_;
