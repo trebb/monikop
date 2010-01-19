@@ -6,7 +6,7 @@ use File::Rsync;
 use File::Basename;
 use Thread 'async';
 use threads::shared;
-use Curses; # Debian package libcurses-perl
+use Curses;
 
 my @monikop_banner = (
     "    _/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/_/_/ ", 
@@ -548,7 +548,7 @@ if ($debug == 1) {
             sleep 2;
             if (++ $redraw_window_count > 5) {
                 $redraw_window_count = 0;
-                clearok(1);
+	    redrawwin();
             }
             doupdate();
         }
