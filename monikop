@@ -9,12 +9,12 @@ use threads::shared;
 use Curses;
 
 my @monikop_banner = (
-    "    _/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/_/_/ ", 
-    "   _/_/  _/_/  _/    _/  _/_/    _/    _/    _/  _/    _/    _/  _/    _/",
-    "  _/  _/  _/  _/    _/  _/  _/  _/    _/    _/_/      _/    _/  _/_/_/   ", 
-    " _/      _/  _/    _/  _/    _/_/    _/    _/  _/    _/    _/  _/        ", 
-    "_/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/         ",
-    );
+  "    _/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/_/_/ ", 
+  "   _/_/  _/_/  _/    _/  _/_/    _/    _/    _/  _/    _/    _/  _/    _/",
+  "  _/  _/  _/  _/    _/  _/  _/  _/    _/    _/_/      _/    _/  _/_/_/   ", 
+  " _/      _/  _/    _/  _/    _/_/    _/    _/  _/    _/    _/  _/        ", 
+  "_/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/         ",
+  );
 	
 # Debug mode:
 # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
@@ -199,7 +199,8 @@ sub rsync_preparation_form {
 	   '$rsync_outfun{\'', $source, '\'} = sub {',
 	   '    my ($outline, $outputchannel) = @_ ; ',
 	   '    my ($speed) = $outline =~ /\d+\s+\d+%\s+(\S+)/; ',
-	   '    my ($progress_ratio) = $outline =~ /.+to-check=(\d+\/\d+)\)$/; ',
+	   '    my ($progress_ratio) = ',
+	   '        $outline =~ /.+to-check=(\d+\/\d+)\)$/; ',
 	   '    if ($speed and $outputchannel eq \'out\') {',
 	   '        $speeds{\'', $source, '\'} = $speed;',
 	   '    } else {',
@@ -221,16 +222,22 @@ sub rsync_preparation_form {
 	   '            dest => \\\'\' . $complete_destination . \'/\\\', ',
 	   '            outfun => $rsync_outfun{\\\'', $source, '\\\'}, ', 
 	   '            progress => 1, debug => 0, verbose => 0, ',
-	   '    	filter => [\\\'merge,- ', $finished_prefix, $source, '\\\'], ',
+	   '    	filter => [\\\'merge,- ', $finished_prefix, $source,
+	   '\\\'], ',
 	   '            literal => [',
 	   '                        \\\'--recursive\\\', \\\'--times\\\', ',
-	   '                        \\\'--partial-dir=', $rsync_partial_dir_name, '\\\', ',
+	   '                        \\\'--partial-dir=',
+	   $rsync_partial_dir_name, '\\\', ',
 	   '                        \\\'--timeout=', $rsync_timeout, '\\\', ',
 	   '                        \\\'--prune-empty-dirs\\\', ',
 	   '                        \\\'--log-file-format=%i %b %l %M %n\\\', ',
-	                    join (', ', map { '\\\'--compare-dest=' .  $_ . '/'
-						  . $path_in_destination . '/'
-						  . $source_dirs_in_destination{$source} . '/\\\'' }
+	                    join (', ',
+				  map {
+				      '\\\'--compare-dest=' . $_ . '/'
+					  . $path_in_destination . '/'.
+					  $source_dirs_in_destination{$source}
+				      . '/\\\''
+				  }
 				  ( @destination_roots )),
 	   '                      , \\\'--log-file=', $rsync_log_prefix, $source, '\\\'] ',
 	   '        }',
@@ -278,9 +285,10 @@ sub rsync_someplace {
 	qx(mkdir -p $common_destination);
 	if ($?) { die "Fatal: $common_destination is not writable."}
 	if (eval ($rsync_exec_form{$source} ($complete_destination))) {
-	    debug_print "EVAL RSYNC_EXEC_FORM (successful) $source, $complete_destination: $@ \n";
+	    debug_print "EVAL RSYNC_EXEC_FORM (successful) $source,\ $complete_destination: $@ \n";
 	    $success = 1;
-	    last; # unnecessary reruns would put empty dirs into otherwise unused destinations
+	    last; # unnecessary reruns would put empty 
+	    #       dirs into otherwise unused destinations
 	} else {
 	    debug_print "EVAL RSYNC_EXEC_FORM (failed) $source, $complete_destination: $@ \n";
 	    $success = 0;
@@ -318,7 +326,10 @@ map {
     my $p_i_d_backed_up =  $_ . '/' . $path_in_destination_backed_up;
     my $p_i_d_being_deleted =  $_ . '/' . $path_in_destination_being_deleted;
     if (-d $p_i_d_backed_up and -d $p_i_d_being_deleted) {
-	warn "[" . $$ . "] Both $p_i_d_backed_up and $ p_i_d_being_deleted exist. This does not normally happen. I'm deleting $p_i_d_being_deleted. Be patient.\n";
+	warn "[" . $$ . "] " .
+	    "Both $p_i_d_backed_up and $ p_i_d_being_deleted exist.\n" .
+	    "This does not normally happen.\n" .
+	    "I'm deleting $p_i_d_being_deleted. Be patient.\n";
 	qx(rm -rf $p_i_d_being_deleted);
     }
     qx(mv -f $p_i_d_backed_up $p_i_d_being_deleted 2> /dev/null);
@@ -459,12 +470,10 @@ if ($debug == 1) {
             $window_left->attroff($CYAN);
             my $destinations_format = "%-18s%-6s%-3s";
             $window_left->attron(A_BOLD);
-            $window_left->addstr(1, 1,
-                                 sprintf($destinations_format,
-                                         "Removable", "Fresh", "Usg"));
-            $window_left->addstr(2, 1,
-                                 sprintf($destinations_format,
-                                         "Disk", "Data?", "%"));
+            $window_left->addstr(1, 1, sprintf($destinations_format,
+					       "Removable", "Fresh", "Usg"));
+            $window_left->addstr(2, 1, sprintf($destinations_format,
+					       "Disk", "Data?", "%"));
             $window_left->attroff(A_BOLD);
             my $destination_usage;
             my $line_number = 3;
@@ -476,14 +485,15 @@ if ($debug == 1) {
                     $window_left->attron($CYAN);
                     $destination_usage = "no";
                 }
-                $window_left->addstr($line_number, 1,
-                                     sprintf($destinations_format,
-                                             substr($_, -17, 17),
-                                             substr($destination_usage, -6, 6),
-                                             substr($destination_usage_ratios{$_} ?
-                                                    $destination_usage_ratios{$_} :
-                                                    "?",
-                                                    -3, 3)));
+                $window_left->
+		    addstr($line_number, 1,
+			   sprintf($destinations_format,
+				   substr($_, -17, 17),
+				   substr($destination_usage, -6, 6),
+				   substr($destination_usage_ratios{$_}
+					  ? $destination_usage_ratios{$_}
+					  : "?",
+					  -3, 3)));
                 ++ $line_number;
                 $window_left->attroff($RED);
                 $window_left->attroff($CYAN);
@@ -495,12 +505,12 @@ if ($debug == 1) {
             $window_right->attroff($MAGENTA);
             my $sources_format = "%-15s%-11s%-9s%-13s";
             $window_right->attron(A_BOLD);
-            $window_right->addstr(1, 1,
-                                  sprintf ($sources_format,
-                                           "Data", "", "To", "Writing"));
-            $window_right->addstr(2, 1,
-                                  sprintf ($sources_format,
-                                           "Source", "Speed", "Do", "To"));
+            $window_right->
+		addstr(1, 1, sprintf ($sources_format,
+				      "Data", "", "Files", " Writing"));
+            $window_right->
+		addstr(2, 1, sprintf ($sources_format,
+				      "Source", "Speed", "To Copy", " To"));
             $window_right->attroff(A_BOLD);
             $line_number = 3;
             $window_right->attron($MAGENTA);
@@ -512,19 +522,19 @@ if ($debug == 1) {
                         $destination_source_is_writing_to{$source};
                 }
                 if ($reachable{$source}) { 
-                    $window_right->addstr($line_number, 1,
-                                          sprintf($sources_format,
-                                                  substr($source_roots{$source},
-                                                         0, 15),
-                                                  substr($speeds{$source}, 0, 11),
-                                                  substr($progress_ratios{$source},
-                                                         -9, 9),
-                                                  substr($current_destination,
-                                                         -13, 13)));
+                    $window_right->
+			addstr($line_number, 1,
+			       sprintf($sources_format,
+				       substr($source_roots{$source}, 0, 14),
+				       substr($speeds{$source}, 0, 11),
+				       substr($progress_ratios{$source},
+					      -9, 9),
+				       substr($current_destination, -13, 13)));
                     ++ $line_number;
                 }
-                $window_right->addstr($line_number, 1,
-                                      sprintf($sources_format, "", "", "", ""));
+                $window_right->
+		    addstr($line_number, 1,
+			   sprintf($sources_format, "", "", "", ""));
             } sort (keys %source_roots);
             $window_right->attroff($MAGENTA);
 
@@ -537,7 +547,8 @@ if ($debug == 1) {
 
             $window_bottom->box(0,0);
             $window_bottom->attron(A_BOLD);
-            $window_bottom->addstr(1, 3, "[F3]: Turn off computer.                         [F6]: Restart computer.");
+            $window_bottom->addstr(1, 3, "[F3]: Turn off computer.");
+            $window_bottom->addstr(1, 53, "[F6]: Restart computer.");
             $window_bottom->attroff(A_BOLD);
 
             $window_left->noutrefresh();
