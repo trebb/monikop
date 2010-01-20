@@ -2,7 +2,6 @@
 #subtitle rsync between unconnected hosts
 
 
-
 * Installation
 
 We assume Debian GNU/Linux here, but any distribution should
@@ -256,7 +255,8 @@ logfile = rsyncd.log
     transfer logging = false
 </src>
 
-Configure service rsync for automatic start.
+Configure service RsyncServer: right-click My Computer; click Manage, Services
+and Applications, Services, RsyncServer; set Startup Type to Automatic.
 
 
 #Network_Setup

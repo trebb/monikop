@@ -1,10 +1,11 @@
-# -*- perl -*-
-##############################################################
-# Settings
+# (This is -*- perl -*- code.)
+########################################################################
+# Pokinom's configuration file.
 #
-# Copy this file to pokinom.config and adapt it to your needs.
-##############################################################
-# Possible mount points.
+# Copy this file to `pokinom.config' and adapt it to your needs.
+########################################################################
+
+# Possible mount points of the removable disks:
 @usable_mount_points = (
     '/media/disk_1',
     '/media/disk_2',
@@ -28,11 +29,12 @@ $path_under_mount_point_being_deleted =
     'being_deleted'
     ;
 
-# Data destination:
+# Data Destination:
 $destination =
-    'big-server::incoming/NEW_DATA';
+    'big-server::incoming/NEW_DATA'
+    ;
 
-# Credentials of the remote rsync server. String, or 0 if not used:
+# Credentials of the rsync server on Destination. String, or 0 if not used:
 $rsync_username =
     'm-operator'
     ;
@@ -42,27 +44,30 @@ $rsync_password =
 
 # Path and file name prefix to rsync's raw log:
 $rsync_log_prefix =
-    '/tmp/pokinom/log.'
+    '~/log/pokinom/log.'
     ;
 
 # Path and file name prefix to a file where a list of rsync's incompletely
-# transferred files is stored in:
+# transferred files is kept:
 $interrupted_prefix =
-    '/tmp/pokinom/interrupted.'
+    '~/log/pokinom/interrupted.'
     ;
 
-# Shut down when finished? (default); 1 = yes; 2 = stay on.
+# Shut down when finished? (Default, can be toggled by user by pressing F9.)
+# 1 = yes; 2 = stay on.
 $shut_down_when_done =
     0
     ;
 
-# How to turn off:
+# What to do (shutdown) when F3 has been pressed:
 $shut_down_action =
     "sudo halt -p"
     ;
 
-# Rsync's directory (relative to destination) for partially transferred files.
-# Must agree with Monikop's setting.
+# Rsync's directory (relative to mount point of removable disk) for partially
+# transferred files.
+# Must agree with Monikop's setting. Make sure your payload data does not
+# contain an equally-named directory.
 $rsync_partial_dir_name =
     '.rsync_partial'
     ;

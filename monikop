@@ -39,15 +39,15 @@ my @usable_mount_points;
 
 # Common directory (under a mount point) to put new data in.
 # Must agree with Pokinom's setting.
-my $path_in_destination;
+my $path_under_mount_point;
 
 # Directories (under any mount point) of this name will be deleted
 # Must agree with Pokinom's setting.
-my $path_in_destination_backed_up;
+my $path_under_mount_point_backed_up;
 
 # Directory name (under a mount point) while being deleted.
 # Must agree with Pokinom's setting.
-my $path_in_destination_being_deleted;
+my $path_under_mount_point_being_deleted;
 
 # Path and file name prefix of rsync's raw logs:
 my $rsync_log_prefix;
@@ -236,7 +236,7 @@ sub rsync_preparation_form {
 	                    join (', ',
 				  map {
 				      '\\\'--compare-dest=' . $_ . '/'
-					  . $path_in_destination . '/'.
+					  . $path_under_mount_point . '/'.
 					  $source_dirs_in_destination{$source}
 				      . '/\\\''
 				  }
@@ -281,7 +281,7 @@ sub rsync_someplace {
     my $finished_name = $finished_prefix . $source;
     foreach (@destinations) {
 	$destination_source_is_writing_to{$source} = $_;
-	my $common_destination = $_ . '/' . $path_in_destination;
+	my $common_destination = $_ . '/' . $path_under_mount_point;
 	my $complete_destination = $common_destination . '/'
 	    . $source_dirs_in_destination{$source};
 	qx(mkdir -p $common_destination);
@@ -322,9 +322,9 @@ debug_print @destination_roots;
 
 # Clean up destinations:
 map {
-    my $p_i_d = $_ . '/' . $path_in_destination;
-    my $p_i_d_backed_up =  $_ . '/' . $path_in_destination_backed_up;
-    my $p_i_d_being_deleted =  $_ . '/' . $path_in_destination_being_deleted;
+    my $p_i_d = $_ . '/' . $path_under_mount_point;
+    my $p_i_d_backed_up =  $_ . '/' . $path_under_mount_point_backed_up;
+    my $p_i_d_being_deleted =  $_ . '/' . $path_under_mount_point_being_deleted;
     if (-d $p_i_d_backed_up and -d $p_i_d_being_deleted) {
 	warn "[" . $$ . "] " .
 	    "Both $p_i_d_backed_up and $ p_i_d_being_deleted exist.\n" .
@@ -419,7 +419,7 @@ $destinations_monitor_thread = async {
 	    map {
 		my $source_root = $_;
 		my $complete_destination = $destination_root . '/'
-		    . $path_in_destination . '/'
+		    . $path_under_mount_point . '/'
 		    . $source_dirs_in_destination{$source_root};
 		my @dir = qx(ls -A $complete_destination/ 2> /dev/null);
 		$destination_usage = 1 if scalar @dir; # 0 = no new data
@@ -434,11 +434,8 @@ $destinations_monitor_thread = async {
     }
 };
 
-if ($debug == 1) {
-# Let the workers toil.
-    sleep;
-} else {
-# Let the workers toil; talk to the user.
+unless ($debug == 1) {
+# Talk to the user.
     
     $display_thread = async {
         $SIG{TERM} = sub {

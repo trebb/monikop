@@ -1,2 +1,2 @@
 #disable-tables t
-Copyright <literal>&copy;</literal>  2010 | [[mailto:trebb@users.berlios.de?subject=MONIKOP ][Bert Burgemeister]]
+Copyright <literal>&copy;</literal>  2010 | [[mailto:trebbu@googlemail.com?subject=MONIKOP ][Bert Burgemeister]]

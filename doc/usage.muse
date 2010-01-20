@@ -46,22 +46,33 @@ must be rebooted once this hasn't been the case.
    - You have to be able to tell from your data if it's complete.
    - data transferred, but to ignore
    - Backup functionality: data remains on disks until re-inserted in
-     Monikop. Names in use.
-
+     Monikop. Names in use. How to recover.
+   - Re-copy data from Source: delete from log the two files per Source that
+     are named by $rsync_log_prefix and $finished_prefix in [[installation#monikop.config][=monikop.config=]].
 
 
 
 ** fsck-pokinom
+   - TODO: unfinished
    - fsck-pokinom: to be run by root
 
 
 * Bugs
 
-  - Data must not contain any directories called $rsync_partial_dir_name
+  - Payload data must not contain any directories with the names set in
+    [[installation#monikop][=monikop.config]]/[[installation#pokinom.config][pokinom.config]]
+    by =$rsync_partial_dir_name=.
   - Doesn't reflect disappearance of files on sources
   - May ignore empty dirs (really?)
   - During copying, obsolete versions of some files may temporarily be
     on destination (after interrupted transfer of files which then have
     grown larger)
-   - frequent power cuts (as opposed to normal shutdown operations) may
+  - frequent power cuts (as opposed to normal shutdown operations) may
      compromise efficiency in terms of disk usage.
+  - By running multiple instances of Rsync, Monikop puts considerable strain
+    to the system, which may reveal previously unnoticed hardware faults.
+
+; System reports disk error on (say) /dev/sdb1. What is it's label?
+; ls -l /dev/disk/by-label
+
+; Monikop and Pokinom will create the directories they need.
