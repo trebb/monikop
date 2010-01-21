@@ -1,0 +1,18 @@
+#title Monikop and Pokinom
+#subtitle rsync between unconnected hosts
+#author Bert Burgemeister
+
+
+* Download
+
+Get Monikop's Git repository:
+
+=$ git-clone git://repo.or.cz/monikop.git=
+
+or
+
+=$ git-clone http://repo.or.cz/r/monikop.git=
+
+
+There aren't any releases at the moment. If you need a tar.gz file,
+you can get one [[http://repo.or.cz/w/monikop.git/snapshot/][here]].

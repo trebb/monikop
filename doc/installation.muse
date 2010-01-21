@@ -1,5 +1,7 @@
 #title Monikop and Pokinom
 #subtitle rsync between unconnected hosts
+#author Bert Burgemeister
+
 
 
 * Installation
@@ -27,7 +29,7 @@ Put sticker labels with disk names on your removable disks.
 *** File Systems
 
 Create labelled filesystems on the removable disks. Example
-(suppose a removable with a sticker label "=disk_10=" on its case is attached to =/dev/sdg1=): 
+(suppose a removable disk with a sticker label "=disk_10=" on its case is attached to =/dev/sdg1=): 
 
 =# mke2fs -j -L disk_10 /dev/sdg1=
 
@@ -110,9 +112,9 @@ and call
 Create a user on both Monikop's and Pokinom's machine. For
 description's sake, we assume they're called m-operator.
 
-Get Monikop (and Pokinom); from m-operator's home directory say:
+Inside m-operators home directory, [[download][get Monikop (and Pokinom)]] and
 
-=$ git-clone (FIXME: repo here)=
+=$ cd monikop=.
 
 Copy =monikop.config.example= to =monikop.config= and
 =pokinom.config.example= to =pokinom.config, respectively,= and
@@ -389,7 +391,7 @@ pid file = /var/run/rsyncd.pid
 </src>
 
 =/etc/rsyncd.secrets= contains Rsync's credentials which must
-correspond to settings =$rsync_passwd= and =$rsync_username= in [[installation#pokinom.config][pokinom.config]]
+correspond to settings =$rsync_passwd= and =$rsync_username= in [[installation#pokinom.config][pokinom.config]]:
 
 <src lang="conf">
 m-operator:seCreT

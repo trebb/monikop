@@ -33,7 +33,8 @@ The heavy lifting is done by [[http://www.samba.org/rsync/][Rsync]]. Sources as 
 need to have Rsync installed. Both can be running Linux, Windows, or
 any operating system Rsync can be installed on.
 
-
- - Transfer rates ca. ...
+You can expect transfer rates of about
+ - 30 megabytes per second per Source running Windows,
+ - 50 megabytes per second per Source running Linux.
 
 

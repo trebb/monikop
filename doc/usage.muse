@@ -4,6 +4,8 @@
 
 * Usage
 
+Both Monikop and Pokinom will create automatically any directories they need.
+
 ** Monikop
 
 Put removable disks into Monikop's host on Rover and switch it on. Immediately,
@@ -32,23 +34,19 @@ on. Immediately, Pokinom starts pushing data to Destination. You
 should wait until it's finished, otherwise files, even if copied to
 Destination, can't be deleted from their removable disks by Monikop.
 
-Press [F9] to toggle wheather or not Pokinom shuts down when finished.
+Press [F9] to toggle whether or not you want Pokinom to shut down
+when finished. 
 
 File permissions in Destination's receiving directory must not be
 changed in a way that prevents the rsync server from modifying.
 Best practice is to move anything out of this directory prior to any
 processing. 
 
-Pokinom needs a sufficient amount of free space on Destination; it
-must be rebooted once this hasn't been the case. 
+Pokinom needs a sufficient amount of free disk space on Destination; it
+must be rebooted once this temporarily hasn't been the case. 
 
 
-   - You have to be able to tell from your data if it's complete.
    - data transferred, but to ignore
-   - Backup functionality: data remains on disks until re-inserted in
-     Monikop. Names in use. How to recover.
-   - Re-copy data from Source: delete from log the two files per Source that
-     are named by $rsync_log_prefix and $finished_prefix in [[installation#monikop.config][=monikop.config=]].
 
 
 
@@ -57,22 +55,34 @@ must be rebooted once this hasn't been the case.
    - fsck-pokinom: to be run by root
 
 
+** Recovering Lost Data
+
+   - Backup functionality: data remains on disks until re-inserted in
+     Monikop. Names in use. How to recover.
+   - Re-copy data from Source: delete from log the two files per Source that
+     are named by $rsync_log_prefix and $finished_prefix in [[installation#monikop.config][monikop.config]].
+
+
 * Bugs
 
-  - Payload data must not contain any directories with the names set in
-    [[installation#monikop][=monikop.config]]/[[installation#pokinom.config][pokinom.config]]
-    by =$rsync_partial_dir_name=.
-  - Doesn't reflect disappearance of files on sources
-  - May ignore empty dirs (really?)
-  - During copying, obsolete versions of some files may temporarily be
-    on destination (after interrupted transfer of files which then have
-    grown larger)
-  - frequent power cuts (as opposed to normal shutdown operations) may
-     compromise efficiency in terms of disk usage.
+  - Monikop and Pokinom allow files on Sources to change at any time
+    and will reflect such changes in Destination. As a downside,
+    Monikop and Pokinom are unable to tell whether a file is transferred
+    completely. You should be able to assert completeness of your
+    files by other means.
+  - Payload data must not contain any directories with the names set
+    by =$rsync_partial_dir_name= in 
+    [[installation#monikop][monikop.config]]/[[installation#pokinom.config][pokinom.config]]
+  - Deletions on Sources won't propagate to Destination.
+  - May ignore empty dirs on Sources (TODO: really?)
+  - During copying, occasionally obsolete versions of a file may
+    temporarily appear on Destination. This can happen with files that
+    have grown bigger after having been copied already.
+  - Frequent power cuts (as opposed to normal shutdown operations) may
+    compromise efficiency in terms of disk usage.
   - By running multiple instances of Rsync, Monikop puts considerable strain
-    to the system, which may reveal previously unnoticed hardware faults.
+    on the system, which may reveal previously unnoticed hardware faults.
 
 ; System reports disk error on (say) /dev/sdb1. What is it's label?
 ; ls -l /dev/disk/by-label
 
-; Monikop and Pokinom will create the directories they need.
