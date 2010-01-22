@@ -74,7 +74,7 @@ must be rebooted once this temporarily hasn't been the case.
     by =$rsync_partial_dir_name= in 
     [[installation#monikop][monikop.config]]/[[installation#pokinom.config][pokinom.config]]
   - Deletions on Sources won't propagate to Destination.
-  - May ignore empty dirs on Sources (TODO: really?)
+  - May ignore empty directories on Sources (TODO: really?)
   - During copying, occasionally obsolete versions of a file may
     temporarily appear on Destination. This can happen with files that
     have grown bigger after having been copied already.

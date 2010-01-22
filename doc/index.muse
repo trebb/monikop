@@ -7,7 +7,7 @@
 
 Suppose you have an isolated network of data producing computers
 (Sources), e.g. in a surveying vehicle (Rover). The collected data (a
-few Terabytes per day) need to be transferred to a processing server
+few terabytes per day) need to be transferred to a processing server
 (Destination) in office.
 
 This data transfer, which happens by means of removable disks, is

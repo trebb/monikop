@@ -28,7 +28,7 @@ Put sticker labels with disk names on your removable disks.
 
 *** File Systems
 
-Create labelled filesystems on the removable disks. Example
+Create labelled file systems on the removable disks. Example
 (suppose a removable disk with a sticker label "=disk_10=" on its case is attached to =/dev/sdg1=): 
 
 =# mke2fs -j -L disk_10 /dev/sdg1=
@@ -79,7 +79,7 @@ Put each removable disk in and make it writable; e.g.:
  
 *** Maintain Bootability
 
-On both Monikop's and Pokinoms host, make sure the operating system boots
+On both Monikop's and Pokinom's host, make sure the operating system boots
 actually from its system disk rather than from some of the removable
 ones. Change =/boot/grub/menu.lst= where it says <code># kopt=root=...</code>:
 
@@ -119,7 +119,7 @@ Inside m-operators home directory, [[download][get Monikop (and Pokinom)]] and
 Copy =monikop.config.example= to =monikop.config= and
 =pokinom.config.example= to =pokinom.config, respectively,= and
 adapt them according to your needs. Both are perl code, so be careful
-and keep the interpunction in place. 
+and keep the punctuation in place. 
 
 #monikop.config
 *** =monikop.config=
@@ -179,7 +179,7 @@ If necessary, specify path to config file, e.g.
 
 *** Setup Sudo
 
-On both Monikop's and Pokinom's host authorize m-operator to shut down computer.
+On both Monikop's and Pokinom's host authorise m-operator to shut down computer.
 Use =visudo= to change =/etc/sudoers=; add:
 
 <src lang="conf">
