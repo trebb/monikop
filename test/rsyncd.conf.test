@@ -17,3 +17,15 @@ use chroot = no
         path = /tmp/monikop-test/mnt/05
         read only = no
 	hosts allow = localhost
+
+[test_05_destination]
+        path = /tmp/monikop-test/mnt/05
+        list = no
+        comment = Pokinom only; requires authentication
+        read only = no
+        incoming chmod = g+r,g+w
+        write only = yes
+        # Pokinom's IP:
+        hosts allow = localhost
+        auth users = m-operator
+        secrets file = ../test/rsyncd.secrets.test

@@ -4,11 +4,10 @@
 #
 # Copy this file to pokinom.config and adapt it to your needs.
 ##############################################################
-# Possible mount points. Must be unique in their tails after rightmost /.
+# Possible mount points.
 @usable_mount_points = (
-    '/media/disk_1',
-    '/media/disk_2',
-    '/media/disk_3',
+    '/tmp/monikop-test/mnt/03',
+    '/tmp/monikop-test/mnt/04',
     );
 
 # Directory relative to a mount point where new data resides.
@@ -30,7 +29,8 @@ $path_under_mount_point_being_deleted =
 
 # Data sink.
 $destination =
-    'big-server::incoming/NEW_DATA';
+    'rsync://localhost:2000/test_05_destination/NEW_DATA'
+;
 
 # Credentials of the remote rsync server. String, or 0 if not used.
 $rsync_username =
@@ -42,12 +42,12 @@ $rsync_password =
 
 # Full path to rsync's raw log
 $rsync_log_prefix =
-    '/tmp/pokinom/log.'
+    '/tmp/monikop-test/pokinom/log.'
     ;
 
 # Full path to a file to store list of rsync's incompletely transferred files in:
 $interrupted_prefix =
-    '/tmp/pokinom/interrupted.'
+    '/tmp/monikop-test/pokinom/interrupted.'
     ;
 
 # Shut down when finished? (default); 1 = yes; 2 = stay on.

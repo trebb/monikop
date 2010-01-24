@@ -2,7 +2,6 @@
 
 # Caveats: kills all killable rsyncs
 #          don't disturb test timing by putting too much (extra) load on the machine
-# Debian: install packages bc, time
 
 TESTDIR=/tmp/monikop-test
 DEV=$TESTDIR/dev
@@ -11,6 +10,7 @@ LOG=$TESTDIR/log
 RSYNC=$TESTDIR/rsync
 MONIKOP_1="../monikop ../test/monikop.config.test.1"
 MONIKOP_2="../monikop ../test/monikop.config.test.2"
+POKINOM="../pokinom ../test/pokinom.config.test"
 TEST_COUNT=0
 FAIL_COUNT=0
 FAILED_TESTS=""
@@ -42,8 +42,9 @@ function make_test_drive {
 
 # make_test_file <name> <size> <date>
 function make_test_file {
-    dd if=/dev/zero of=$1 bs=1024 count=$2 2> /dev/null
-    echo ++++++++++++++++++++++++++$RANDOM***$3---$1 >> $1
+    mkdir -p `dirname "$1"`
+    dd if=/dev/zero of="$1" bs=1024 count=$2 2> /dev/null
+    echo "++++++++++++++++++++++++++$RANDOM***$3---$1" >> "$1"
     touch -t $3 $1
 }
 
@@ -54,19 +55,27 @@ function find_and_compare {
         ORIGIN_DIRS="$ORIGIN_DIRS $1"; shift;
     done
     shift
+    COPY_DIRS=$@
     MISSING=""
     DIVERGING=""
     DIVERGING_MTIME=""
     RETURN_VALUE=0
-    for i in `find $ORIGIN_DIRS -type f 2> /dev/null`; do
-        FOUND=`find $@ -path "$MNT/*/measuring_data/${i#$MNT/*/data/}" 2> /dev/null`
-        if [[ $FOUND == "" ]] ; then
-            MISSING="$MISSING $i";
-        elif ! cmp --quiet $i $FOUND; then
-            DIVERGING="$DIVERGING $i"
-        elif [[ `stat --printf="%Y" $i` != `stat --printf="%Y" $FOUND` ]]; then
-            DIVERGING_MTIME="$DIVERGING_MTIME $i"
-        fi
+    for ORIGIN_DIR in $ORIGIN_DIRS; do
+        for ORIGIN_FILE in `find $ORIGIN_DIR -type f 2> /dev/null`; do
+            for COPY_DIR in $COPY_DIRS; do
+                FOUND=`find $COPY_DIR -path "$COPY_DIR/${ORIGIN_FILE#$ORIGIN_DIR/}" 2> /dev/null`
+                if [[ $FOUND != "" ]] ; then
+                    break
+                fi
+            done
+            if [[ $FOUND == "" ]] ; then
+                MISSING="$MISSING $ORIGIN_FILE";
+            elif ! cmp --quiet $ORIGIN_FILE $FOUND; then
+                DIVERGING="$DIVERGING $ORIGIN_FILE"
+            elif [[ `stat --printf="%Y" $ORIGIN_FILE` != `stat --printf="%Y" $FOUND` ]]; then
+                DIVERGING_MTIME="$DIVERGING_MTIME $ORIGIN_FILE"
+            fi
+        done
     done
     if [[ $MISSING != "" ]]; then
         RETURN_VALUE=1
@@ -108,15 +117,15 @@ for i in 01 02 03 04; do
         MOUNTING_PROBLEM=1
     fi
 done
-make_test_drive 05 102400
+make_test_drive 05 307200
 if [[ $? == 1 ]]; then
     MOUNTING_PROBLEM=1
 fi
 if [[ $MOUNTING_PROBLEM == 1 ]]; then exit; fi
 
 # Prepare data sources:
-mkdir -p $MNT/01/data/d1/d2
-mkdir -p $MNT/02/data/d1/d2
+# mkdir -p $MNT/01/data/d1/d2
+# mkdir -p $MNT/02/data/d1/d2
 for i in f1 f2 f3; do
     make_test_file $MNT/01/data/$i 25000 200703250845.33
 done
@@ -212,84 +221,139 @@ function test_monikop_no_source {
     return $RETURN
 }
 
+function test_pokinom_clean_finish {
+    $POKINOM & sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
+    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/05/NEW_DATA
+}
+
+function test_pokinom_short {
+    $POKINOM & sleep $INTERRUPTION_TIME_1; /bin/kill -TERM $!
+    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/05/NEW_DATA
+}
+
+function test_pokinom_late_destination {
+    kill_rsyncd
+    $POKINOM & sleep $INTERRUPTION_TIME_2; start_rsyncd; sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
+    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/05/NEW_DATA
+}
+
 start_rsyncd
 
 ##########################
 ### Run tests: Monikop
 ##########################
 
-# run_test 0 test_monikop_simple "Simple run."
-# 
-# rm -rf $MNT/0{3,4}/* $LOG
-# 
-# chmod a-w,a-x $MNT/0{3,4}
-# run_test 1 test_monikop_simple "Unwritable destination"
-# chmod a+w,a+x $MNT/0{3,4}
-# run_test 0 test_monikop_simple "Unwritable destination"
-# 
-# #kill_rsyncd; exit
-# 
-# rm -rf $MNT/0{3,4}/* $LOG
-# 
-# run_test 0 test_monikop_simple_late_sources "Simple run, sources coming up late."
-# 
-# mv $MNT/03/measuring_data $MNT/03/backed_up
-# mv $MNT/04/measuring_data $MNT/04/backed_up
-# rm -rf $LOG
-# 
-# run_test 0 test_monikop_simple "Simple run, deletion."
-# 
-# rm -rf $MNT/0{3,4}/* $LOG
-# 
-# run_test 1 test_monikop_short_2 "Repeated interruption."
-# run_test 1 test_monikop_short_2 "Repeated interruption (may pass unexpectedly due to test timing)."
-# run_test 0 test_monikop_simple_2 "Repeated interruption."
-# 
-# mv $MNT/03/measuring_data $MNT/03/backed_up
-# mv $MNT/04/measuring_data $MNT/04/backed_up
-# mv $MNT/05/measuring_data $MNT/05/backed_up
-# rm -rf $LOG
-# 
-# run_test 1 test_monikop_short_2 "Repeated interruption, deletion."
-# run_test 1 test_monikop_short_2 "Repeated interruption, deletion (may pass unexpectedly due to test timing)."
-# run_test 0 test_monikop_simple_2 "Repeated interruption, deletion."
-# 
-# rm -rf $MNT/0{3,4,5}/* $LOG
-# 
-# run_test 1 test_monikop_overflow 
-# 
-# rm -rf $MNT/0{3,4}/* $LOG
-# 
-# run_test 0 test_monikop_no_destination "No destination available."
-# run_test 0 test_monikop_no_source "No destination available."
-# 
-# rm -rf $MNT/0{3,4}/* $LOG
-# 
-# run_test 1 test_monikop_short_kill_rsync_first "Rsync killed."
-# ps aux | grep rsync
-# run_test 0 test_monikop_simple_2 "Rsync killed."
-# 
-# rm -rf $MNT/0{3,4,5}/* $LOG
-# 
-# run_test 1 test_monikop_short_cut_sources "Connection to source destroyed."
-# run_test 0 test_monikop_simple_2 "Connection to source destroyed."
-# 
-# rm -rf $MNT/0{3,4,5}/* $LOG
+chmod a-w,a-x $MNT/0{3,4}
+run_test 1 test_monikop_simple "Unwritable destination"
+chmod a+w,a+x $MNT/0{3,4}
+run_test 0 test_monikop_simple "Unwritable destination"
+
+rm -rf $MNT/0{3,4}/* $LOG
+
+run_test 0 test_monikop_simple_late_sources "Simple run, sources coming up late."
+
+mv $MNT/03/measuring_data $MNT/03/backed_up
+mv $MNT/04/measuring_data $MNT/04/backed_up
+rm -rf $LOG
+
+run_test 0 test_monikop_simple "Simple run, deletion."
+
+rm -rf $MNT/0{3,4}/* $LOG
+
+run_test 1 test_monikop_short_2 "Repeated interruption."
+run_test 1 test_monikop_short_2 "Repeated interruption (may pass unexpectedly due to test timing)."
+run_test 0 test_monikop_simple_2 "Repeated interruption."
+
+mv $MNT/03/measuring_data $MNT/03/backed_up
+mv $MNT/04/measuring_data $MNT/04/backed_up
+mv $MNT/05/measuring_data $MNT/05/backed_up
+rm -rf $LOG
+
+run_test 1 test_monikop_short_2 "Repeated interruption, deletion."
+run_test 1 test_monikop_short_2 "Repeated interruption, deletion (may pass unexpectedly due to test timing)."
+run_test 0 test_monikop_simple_2 "Repeated interruption, deletion."
+
+rm -rf $MNT/0{3,4,5}/* $LOG
+
+run_test 0 test_monikop_no_destination "No destination available."
+run_test 0 test_monikop_no_source "No destination available."
+
+rm -rf $MNT/0{3,4}/* $LOG
+
+run_test 1 test_monikop_short_kill_rsync_first "Rsync killed."
+ps aux | grep rsync
+run_test 0 test_monikop_simple_2 "Rsync killed."
+
+rm -rf $MNT/0{3,4,5}/* $LOG
+
+run_test 1 test_monikop_short_cut_sources "Connection to source destroyed."
+run_test 0 test_monikop_simple_2 "Connection to source destroyed."
+
+rm -rf $MNT/0{3,4,5}/* $LOG
 
 
+##############################
+# Monikop and Pokinom together
+##############################
 
-# unfinished: Pokinom must recover from this mess
-run_test 0 test_monikop_simple "Simple run."
+run_test 0 test_monikop_simple "Simple run in preparation for simple Pokinom test."
+run_test 0 test_pokinom_clean_finish "Simple Pokinom test."
+
+rm -rf $MNT/05/* $LOG
+
+run_test 0 test_monikop_simple "Preparation for Pokinom's destination overfull."
+# Stuff destination:
+make_test_file $MNT/05/stuffing 200000 199903250845
+run_test 1 test_pokinom_clean_finish "Pokinom's destination overfull."
+rm $MNT/05/stuffing
+run_test 0 test_pokinom_clean_finish "Pokinom's destination no longer overfull: recovering."
+
+rm -rf $MNT/05/* $LOG
+
+run_test 0 test_monikop_simple "Simple run in preparation for Pokinom, late destination."
+run_test 0 test_pokinom_late_destination "Pokinom, late destination."
+
+rm -rf $MNT/05/* $LOG
+
+run_test 0 test_monikop_simple "Simple run in preparation for Pokinom stopped early."
+run_test 1 test_pokinom_short "Pokinom stopped early."
+run_test 0 test_monikop_simple "Simple run after Pokinom having been stopped early."
+run_test 0 test_pokinom_clean_finish "Simple run after Pokinom having been stopped early."
+
+rm -rf $MNT/05/* $LOG
+
+run_test 0 test_monikop_simple "Simple run in preparation for \"file grown too large\""
 rm $MNT/01/data/f3
 cat $MNT/01/data/f1 >> $MNT/01/data/f2
+run_test 2 test_monikop_simple "Repeated run, file grown too large."
+run_test 2 test_pokinom_clean_finish "Repeated run, file grown too large."
 run_test 1 test_monikop_simple "Repeated run, file grown too large."
-rm -f $MNT/0{3,4}/measuring_data/f3
-run_test 0 test_monikop_simple "Repeated run, file grown too large."
-rm $MNT/01/data/f2
-for i in f2 f3; do
-    make_test_file $MNT/01/data/$i 25000 200703250845.33
-done
+run_test 0 test_pokinom_clean_finish "Repeated run, file grown too large."
 
+rm -rf $MNT/05/* $LOG
+
+run_test 1 test_monikop_overflow "Initially, too little room on disks."
+run_test 1 test_pokinom_clean_finish "Initially, too little room on disks."
+run_test 1 test_monikop_overflow "Previously, too little room on disks."
+run_test 0 test_pokinom_clean_finish "Previously, too little room on disks."
+
+
+# TODO: the following fails at least in part due to bugs in the tests themselves.
+rm -rf $MNT/0{1,2,3,4,5}/* $LOG
+make_test_file $MNT/01/data/d1/f1 10 200703250845.33
+make_test_file $MNT/01/data/d2/f3 10 200703250845.33
+make_test_file $MNT/01/data/d3/d4/f4 10 200703250845.33
+make_test_file $MNT/01/data/f2 10 200703250845.33
+make_test_file $MNT/01/data/f5 10 200703250845.33
+mv $MNT/01/data/d1/f1 "$MNT/01/data/d1/Große Datei"
+mv $MNT/01/data/d1 "$MNT/01/data/Schönes Verzeichnis"
+mv $MNT/01/data/f2 "$MNT/01/data/{[cool]} file\ n\\a\\m\\e."
+# Not sure if this will ever work:
+mv $MNT/01/data/d2 $MNT/01/data/.rsync_partial
+mv $MNT/01/data/d3/d4 $MNT/01/data/d3/.rsync_partial
+run_test 0 test_monikop_simple "Weird file names."
+run_test 0 test_pokinom_clean_finish "Weird file names."
+run_test 1 test_monikop_short "Weird file names, second run: nothing to do."
 
 kill_rsyncd
 
