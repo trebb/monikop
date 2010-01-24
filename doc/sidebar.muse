@@ -18,3 +18,6 @@
    Developer"><img style="width: 8em; max-width: 124px; border: 0pt"
    src="http://developer.berlios.de/bslogo.php?group_id=11483"
    alt="BerliOS Developer Logo" /></a></literal>
+
+; TODO screen shots
+; TODO news

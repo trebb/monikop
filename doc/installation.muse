@@ -1,4 +1,4 @@
-#title Monikop and Pokinom
+#title Monikop (and Pokinom)
 #subtitle rsync between unconnected hosts
 #author Bert Burgemeister
 
@@ -394,8 +394,10 @@ pid file = /var/run/rsyncd.pid
 correspond to settings =$rsync_passwd= and =$rsync_username= in [[installation#pokinom.config][pokinom.config]]:
 
 <src lang="conf">
-m-operator:seCreT
+m-operator:sEcReT
 </src>
+
+=/etc/rsyncd.secrets= must not be world-readable.
 
 In =/etc/default/rsync=, change the line
 

@@ -45,7 +45,13 @@ if (qx(whoami) eq "root\n") {
     } @mount_output;
     map {
 	my $device = $devices{$_};
-        qx(umount $device && fsck -fp $device);
+        open(PIPE, "umount $device && fsck -fp $device |");
+        while ( defined( my $line = <PIPE> )  ) {
+            chomp($line);
+            print "$line\n";
+        }
+        close PIPE;
+
     } keys %devices;
 } else {
     print "$0: only root can run this.\n";

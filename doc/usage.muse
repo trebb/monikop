@@ -1,4 +1,4 @@
-#title Monikop and Pokinom
+#title Monikop (and Pokinom)
 #subtitle rsync between unconnected hosts
 #author Bert Burgemeister
 
