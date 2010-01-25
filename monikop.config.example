@@ -73,13 +73,13 @@ $key_f6_action =
     "sudo reboot"
     ;
 
-# Rsyncs time (in seconds) to wait for a response. This is roughly the time
+# Rsync's time (in seconds) to wait for a response. This is roughly the time
 # Monikop needs to notice the disappearance of a Source. Must not be 0.
 $rsync_timeout =
     30
     ;
 
-# Rsyncs directory (relative to mount point of removable disk) for partially
+# Rsync's directory (relative to mount point of removable disk) for partially
 # transferred files.
 # Must agree with Pokinom's setting. Make sure your payload data does not
 # contain an equally-named directory.
