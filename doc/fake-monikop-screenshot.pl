@@ -163,10 +163,10 @@ unless ($debug == 1) {
         cbreak();
         noecho();
         curs_set(0);
-        my $window_left = newwin(LINES() -8, 29, 0, 0);
-        my $window_right = newwin(LINES() -8, 50, 0, 29);
-        my $window_center = newwin(5, 79, LINES() -8, 0);
-        my $window_bottom = newwin(3, 79, LINES() -3, 0);
+        my $window_left = newwin(24 -8, 29, 0, 0);
+        my $window_right = newwin(24 -8, 50, 0, 29);
+        my $window_center = newwin(5, 79, 24 -8, 0);
+        my $window_bottom = newwin(3, 79, 24 -3, 0);
         $window_bottom->keypad(1);
         $window_bottom->nodelay(1);
         start_color;
