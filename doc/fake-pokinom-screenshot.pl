@@ -19,138 +19,6 @@ my @pokinom_banner = (
 # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
 my $debug = 0;
 
-## # Where to read local configuration:
-## my $pokinom_config = '~/monikop/pokinom.config';
-## if ($ARGV[0]) {
-##     $pokinom_config = $ARGV[0]
-## }
-
-########################################
-# Settings
-########################################
-# Possible mount points.
-@usable_mount_points = (
-    '/media/disk_1',
-    '/media/disk_2',
-    '/media/disk_3',
-    );
-
-# Directory relative to a mount point where new data resides.
-# Must agree with Monikop's setting.
-my $path_under_mount_point;
-
-# Directories of this name will be deleted.
-# Must agree with Monikop's setting.
-my $path_under_mount_point_backed_up;
-
-# Directory name while being deleted by monikop.
-# Must agree with Monikop's setting.
-my $path_under_mount_point_being_deleted;
-
-# Data destination.
-$destination =
-    'big-server::incoming/NEW_DATA'
-    ;
-
-# Credentials of the remote rsync server. String, or 0 if not used.
-my $rsync_username;
-my $rsync_password;
-
-# Full path to rsync's raw log
-my $rsync_log_prefix;
-
-# Full path to a file to store list of rsync's incompletely
-# transferred files in:
-my $interrupted_prefix;
-
-# Shut down when finished? (default); 1 = yes; 2 = stay on.
-my $shut_down_when_done :shared;
-
-# How to turn off
-my $shut_down_action;
-
-# Rsync's directory (relative to destination) for partially transferred files.
-# Must agree with Monikop's setting.
-my $rsync_partial_dir_name;
-
-## # Local changes to the above.
-## eval `cat $pokinom_config`;
-
-# Places for running rsyncs to put their runtime info in
-my %speeds :shared;
-my %progress_ratios :shared;
-my %done :shared;
-
-sub debug_print { if ($debug) { print @_; } };
-
-# Return sorted intersection of arrays which are supposed to have unique
-# elements.
-sub intersection {
-    my @intersection = ();
-    my %count = ();
-    my $element;
-    foreach $element (@_) { $count{$element}++ }
-    foreach $element (keys %count) {
-	push @intersection, $element if $count{$element} > 1;
-    }
-    sort @intersection;
-}
-
-# Write @content to a file with name $filename.
-sub write_list {
-    my ($filename, @content) = @_;
-    open FILE, '>', $filename
-	or die "[" . $$ . "] open $filename failed: $!\n";
-    print FILE @content;
-    close FILE;
-}
-
-my %source_roots;
-my %rsync_outfun;
-my %rsync;
-
-sub rsync_preparation_form {
-    my ($source) = @_;
-    $speeds{$source} = "-";
-    join ( '',
-	   "\n",
-##########  Capture rsync's status messages for use by UI
-	   '$rsync_outfun{\'', $source, '\'} = sub {',
-	   '    my ($outline, $outputchannel) = @_ ; ',
-	   '    my ($speed) = $outline =~ /\d+\s+\d+%\s+(\S+)/; ',
-	   '    my ($progress_ratio) = $outline =~ /.+to-check=(\d+\/\d+)\)$/; ',
-	   '    if ($speed and $outputchannel eq \'out\') {',
-	   '        $speeds{\'', $source, '\'} = $speed;',
-	   '    } else {',
-	   '        $speeds{\'', $source, '\'} = "-";',
-	   '    };',
-	   '    if ($progress_ratio and $outputchannel eq \'out\') {',
-	   '        $progress_ratios{\'', $source, '\'} = $progress_ratio;',
-	   '    } ;',
-	   '};',
-	   "\n",
-##########  Run rsync
-	   '$rsync{\'', $source, '\'} = File::Rsync->new; ',
-##########  Return fodder for another eval
-	   '$rsync_exec_form{\'', $source, '\'} = sub {',
-	   '    \'$rsync{\\\'', $source, '\\\'}->exec(',
-	   '        {',
-	   '            src => \\\'', $source_roots{$source}, '/', $path_under_mount_point, '/\\\', ',
-	   '            dest => \\\'' . $destination . '/\\\', ',
-	   '            outfun => $rsync_outfun{\\\'', $source, '\\\'}, ', 
-	   '            progress => 1, debug => 0, verbose => 0, ',
-	   '    	filter => [\\\'merge,- ', $interrupted_prefix, $source, '\\\'], ',
-	   '            literal => [\\\'--recursive\\\', \\\'--times\\\', ',
-	   '                        \\\'--partial-dir=', $rsync_partial_dir_name, '\\\', ',
-	   '                        \\\'--update\\\', ',
-	   '                        \\\'--prune-empty-dirs\\\', ',
-	   '                        \\\'--log-file-format=%i %b %n\\\', ',
-	   '                      , \\\'--log-file=', $rsync_log_prefix, $source, '\\\'] ',
-	   '        }',
-	   '    );\' ',
-	   '};',
-	   "\n",
-	)};
 
 sub act_on_keypress {
     my ($pressed_key) = @_;
@@ -178,13 +46,22 @@ $SIG{TERM} = sub {
 ##     my ($filename, $directory) = fileparse $_;
 ##     qx(mkdir -p $directory);
 ## } ( $rsync_log_prefix, $interrupted_prefix );
-
-# Find usable (i.e. mounted) sources
-my @raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
-chomp @raw_mount_points;
-my @sources = intersection @raw_mount_points, @usable_mount_points;
-debug_print "SOURCES:\n";
-debug_print @sources;
+## 
+## # Find usable (i.e. mounted) sources
+## my @raw_mount_points = grep (s/\S+ on (.*) type .*/$1/, qx/mount/);
+## chomp @raw_mount_points;
+## my @sources = intersection @raw_mount_points, @usable_mount_points;
+## debug_print "SOURCES:\n";
+## debug_print @sources;
+@sources = (
+    '/media/disk_1',
+    '/media/disk_2',
+    '/media/disk_3',
+    '/media/disk_4',
+    '/media/disk_5',
+    '/media/disk_6',
+    '/media/disk_7',
+    );
 
 # Turn a path into a legal perl identifier:
 sub make_key_from_path {
@@ -198,108 +75,36 @@ map {
     $source_roots{make_key_from_path $_} = $_
 } @sources;
 
-## # Clean up sources if necessary:
-## map {
-##     my $p_i_d = $source_roots{$_} . '/' . $path_under_mount_point;
-##     my $p_i_d_being_deleted =
-## 	$source_roots{$_} . '/' . $path_under_mount_point_being_deleted;
-##     $being_deleted_thread{$_} =
-## 	async { qx(rm -rf $p_i_d_being_deleted 2> /dev/null); };
-## } keys %source_roots;
-## 
-## # Wait for $destination if necessary:
-## my $rsync_ping = File::Rsync->new;
-## my $empty_directory = dirname($rsync_log_prefix) . "/empty_directory";
-## qx(rm -rf $empty_directory; mkdir -p $empty_directory);
-## 
-## while (1) {
-##     print "Waiting for $destination to become writable.\n";
-##     sleep 2;
-##     $rsync_ping->exec({ src => $empty_directory, dest => $destination});
-##     last if $? == 0;
-## }
+%speeds = (
+    'media_disk_1' => '15.20MB/s',
+    'media_disk_2' => '10.02MB/',
+    'media_disk_3' => '-',
+    'media_disk_4' => '242.73kB/s',
+    'media_disk_5' => '6.78MB/s',
+    'media_disk_6' => '-',
+    'media_disk_7' => '-',
+    );
 
+%done = (
+    'media_disk_1' => 0,
+    'media_disk_2' => 0,
+    'media_disk_3' => 1,
+    'media_disk_4' => 0,
+    'media_disk_5' => 0,
+    'media_disk_6' => 0,
+    'media_disk_7' => 1,
+    );
 
-my %rsync_exec_form;
+%progress_ratios = (
+    'media_disk_1' => '951/2300', 
+    'media_disk_2' => '217/352',  
+    'media_disk_3' => 'Done',        
+    'media_disk_4' => '16/223',   
+    'media_disk_5' => '1854/1929',
+    'media_disk_6' => 'Wait',
+    'media_disk_7' => 'Done',
+    );
 
-# Set up and start things per source_root, in parallel:
-map {
-    $progress_ratios{$_} = "?"; # Initialize for UI
-    $done{$_} = 0;
-    $rsync_worker_thread{$_} = async {
-	my $rsync_log_name = $rsync_log_prefix . $_;
-	debug_print 'rsync_preparation_form:' . rsync_preparation_form ($_). "\n";
-	eval rsync_preparation_form $_;
-	debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
-	my $complete_source =
-            $source_roots{$_} . '/' . $path_under_mount_point;
-	my $complete_source_backed_up =
-            $source_roots{$_} . '/' . $path_under_mount_point_backed_up;
-	my @interrupted =
-            qx((cd $complete_source 2> /dev/null && find ./ -path *$rsync_partial_dir_name/*));
-	# Write exclusion list: don't transfer files Monikop gave up upon.
-	grep s/\.(.*\/)$rsync_partial_dir_name\/(.*)/$1$2/, @interrupted;
-	write_list $interrupted_prefix . $_, @interrupted;
-	debug_print "INTERRUPTED";
-	debug_print @interrupted;
-	if (-d $complete_source) {
-	    if (eval ($rsync_exec_form{$_}() )) {
-		debug_print "EVAL RSYNC_EXEC_FORM (successful) $complete_source: $@ \n";
-	    } else {
-                $display_thread->kill('TERM')->join if $display_thread;
-                # TODO: in case of overfull destination, warn nicer 
-		warn "EVAL RSYNC_EXEC_FORM (failed) $complete_source: $@ \n";
-                threads->exit();
-	    }
-	}
-	$progress_ratios{$_} = "Wait";
-	$speeds{$_} = "-";
-    };
-} keys %source_roots;
-
-# Repeat rsync runs, this time sequentially, in order to get the newest of a
-# file which may exist in multiple versions on different sources:
-my $rsync_worker_thread = async {
-    sleep 4;
-    map {
-	$rsync_worker_thread{$_}->join;
-	debug_print "JOINED $_\n";
-    } keys %source_roots;
-    map {
-	$progress_ratios{$_} = "?"; # Initialize for UI
-	$done{$_} = 0;
-	my $rsync_log_name = $rsync_log_prefix . $_;
-	eval rsync_preparation_form $_;
-	debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
-	my $complete_source =
-            $source_roots{$_} . '/' . $path_under_mount_point;
-	my $complete_source_backed_up =
-            $source_roots{$_} . '/' . $path_under_mount_point_backed_up;
-	my @interrupted =
-            qx((cd $complete_source 2> /dev/null && find ./ -path *$rsync_partial_dir_name/*));
-	# Write exclusion list: don't transfer files Monikop gave up upon.
-	grep s/\.(.*\/)$rsync_partial_dir_name\/(.*)/$1$2/, @interrupted;
-	write_list $interrupted_prefix . $_, @interrupted;
-	if (-d $complete_source) {
-	    if (eval ($rsync_exec_form{$_}() )) {
-		debug_print "EVAL RSYNC_EXEC_FORM (successful) $complete_source: $@ \n";
-		qx(mv $complete_source $complete_source_backed_up);
-	    } else {
-                $display_thread->kill('TERM')->join if $display_thread;
-                # TODO: in case of overfull destination, warn nicer 
-		warn "EVAL RSYNC_EXEC_FORM (failed) $complete_source: $@ \n";
-                threads->exit();
-	    }
-	}
-	$progress_ratios{$_} = "Done";
-	$speeds{$_} = "-";
-	$done{$_} = 1;
-	unless ($debug) {
-	    unlink $rsync_log_name;
-	    unlink $interrupted_prefix . $_;
-	}
-    } keys %source_roots;
-};
 
 unless ($debug == 1) {
 # Talk to the user.
@@ -392,10 +197,3 @@ unless ($debug == 1) {
 
 sleep;
 
-# Tidy up. (Except we don't reach this.)
-map {
-    $being_deleted_thread{$_}->join if $being_deleted_thread{$_};
-} keys %source_roots;
-
-$rsync_worker_thread->join if $rsync_worker_thread;
-$display_thread->join if $display_thread;

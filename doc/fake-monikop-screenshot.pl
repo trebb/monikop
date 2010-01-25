@@ -37,6 +37,9 @@ my %sources = (
     'data_producer2::data' => 'p2_dir',
     'data_producer3::data' => '',
     'data_producer4::data' => '',
+    'data_producer5::data' => '',
+    'data_producer6::data' => '',
+    'data_producer7::data' => '',
     );
 
 # Places to store run-time information to share between threads:
@@ -75,8 +78,11 @@ sub act_on_keypress {
 
 %destination_source_is_writing_to = (
     make_key_from_path ('/data_producer1::data') => '/media/disk_2',
-    make_key_from_path ('/data_producer2::data') => '/media/disk_1',
-    make_key_from_path ('/data_producer3::data') => '/media/disk_3',
+    make_key_from_path ('/data_producer2::data') => '/media/disk_4',
+    make_key_from_path ('/data_producer3::data') => '/media/disk_7',
+    make_key_from_path ('/data_producer4::data') => '/media/disk_5',
+    make_key_from_path ('/data_producer5::data') => '/media/disk_8',
+    make_key_from_path ('/data_producer6::data') => '/media/disk_3',
     );
 
 $SIG{TERM} = sub {
@@ -88,39 +94,60 @@ $SIG{TERM} = sub {
     '/media/disk_1',
     '/media/disk_2',
     '/media/disk_3',
+    '/media/disk_4',
+    '/media/disk_5',
+    '/media/disk_6',
     '/media/disk_7',
+    '/media/disk_8',
     );
 
 %destination_usage_ratios = (
     '/media/disk_1' => 38,
     '/media/disk_2' => 94,
     '/media/disk_3' => 10,
-    '/media/disk_7' => 6,
+    '/media/disk_4' => 27,
+    '/media/disk_5' => 6,
+    '/media/disk_6' => 5,
+    '/media/disk_7' => 99,
+    '/media/disk_8' => 10,
     );
     
 %destination_usages = (
-    '/media/disk_1' => 1,
+    '/media/disk_1' => 0,
     '/media/disk_2' => 1,
     '/media/disk_3' => 1,
-    '/media/disk_7' => 0,
+    '/media/disk_4' => 1,
+    '/media/disk_5' => 1,
+    '/media/disk_6' => 0,
+    '/media/disk_7' => 1,
+    '/media/disk_8' => 1,
     );
 
 %reachable = (
     'data_producer1__data' => 1,
     'data_producer2__data' => 1,
     'data_producer3__data' => 1,
+    'data_producer4__data' => 1,
+    'data_producer5__data' => 1,
+    'data_producer6__data' => 1,
     );
 
 %speeds = (
     'data_producer1__data' => '23.30MB/s',
-    'data_producer2__data' => '23.30MB/s',
-    'data_producer3__data' => '23.30MB/s',
+    'data_producer2__data' => '31.53MB/s',
+    'data_producer3__data' => '-',
+    'data_producer4__data' => '243.81kB/s',
+    'data_producer5__data' => '39.19MB/s',
+    'data_producer6__data' => '23.30MB/s',
     );
 
 %progress_ratios = (
     'data_producer1__data' => '951/2300',
-    'data_producer2__data' => '951/2300',
-    'data_producer3__data' => '951/2300',
+    'data_producer2__data' => '217/352',
+    'data_producer3__data' => '0',
+    'data_producer4__data' => '16/223',
+    'data_producer5__data' => '1854/1929',
+    'data_producer6__data' => '1773/1929',
     );
 
 unless ($debug == 1) {

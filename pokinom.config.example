@@ -54,7 +54,7 @@ $interrupted_prefix =
     ;
 
 # Shut down when finished? (Default, can be toggled by user by pressing F9.)
-# 1 = yes; 2 = stay on.
+# 1 = yes; 0 = stay on.
 $shut_down_when_done =
     0
     ;
