@@ -112,7 +112,7 @@ and call
 Create a user on both Monikop's and Pokinom's machine. For
 description's sake, we assume they're called m-operator.
 
-Inside m-operators home directory, [[download][get Monikop (and Pokinom)]] and
+Inside m-operator's home directory, [[download][get Monikop (and Pokinom)]] and
 
 =$ cd monikop=.
 

@@ -30,9 +30,12 @@ can avoid carrying empty disks around.
 ** Pokinom
 
 Put removable disks into Pokinom's host in office and switch it
-on. Immediately, Pokinom starts pushing data to Destination. You
-should wait until it's finished, otherwise files, even if copied to
-Destination, can't be deleted from their removable disks by Monikop.
+on. Immediately, Pokinom starts pushing data to Destination. 
+Interrupting this by shutting down Pokinom early is not a problem as
+long as it is later given the opportunity to finish. Otherwise files,
+even those already copied to
+Destination, won't be deleted by Monikop from their removable disks
+during the next cycle.
 
 Press [F9] to toggle whether or not you want Pokinom to shut down
 when finished. 
@@ -46,21 +49,41 @@ Pokinom needs a sufficient amount of free disk space on Destination; it
 must be rebooted once this temporarily hasn't been the case. 
 
 
-   - data transferred, but to ignore
+;   TODO: data transferred, but to ignore (probably none)
 
 
+; TODO:
+; ** fsck-pokinom
+;    - fsck-pokinom: to be run by root
 
-** fsck-pokinom
-   - TODO: unfinished
-   - fsck-pokinom: to be run by root
 
+** Data Recovery
 
-** Recovering Lost Data
+*** Data Loss on Destination: Recovery from Removable Disks
 
-   - Backup functionality: data remains on disks until re-inserted in
-     Monikop. Names in use. How to recover.
-   - Re-copy data from Source: delete from log the two files per Source that
-     are named by $rsync_log_prefix and $finished_prefix in [[installation#monikop.config][monikop.config]].
+Data on removable disks are deleted not until the disk is
+finished by Pokinom and re-inserted in
+Monikop. (Non-)deletability is expressed by directory names defined
+in both [[installation#monikop.config][monikop.config]] and
+[[installation#pokinom.config][pokinom.config]]:
+ - =$path_under_mount_point= sets the name of a directory fresh data
+   reside in on each removable disk. Once finished by Pokinom, it
+   is renamed into the name set by
+ - =$path_under_mount_point_backed_up=. You can simply rename it
+   back and Pokinom will push its content to Destination again.
+   If you don't, Monikop will rename it into the name set by
+ - =$path_under_mount_point_being_deleted= as soon as it sees it,
+   and start deleting it while a new =$path_under_mount_point= is
+   created and filled with fresh data.
+
+*** Recovery from Source(s) on Rover
+
+On Monikop's host, stop Monikop and delete the log files whose directories and name
+prefixes are set in [[installation#monikop.config][monikop.config]] by
+=$rsync_log_prefix= and =$finished_prefix=, and whose names resemble
+the Source they belong to.
+
+On next startup, Monikop will pull all data from this Source again.
 
 
 * Bugs
@@ -74,7 +97,8 @@ must be rebooted once this temporarily hasn't been the case.
     by =$rsync_partial_dir_name= in 
     [[installation#monikop][monikop.config]]/[[installation#pokinom.config][pokinom.config]]
   - Deletions on Sources won't propagate to Destination.
-  - May ignore empty directories on Sources (TODO: really?)
+  - May ignore empty directories on Sources.
+; (TODO: really?)
   - During copying, occasionally obsolete versions of a file may
     temporarily appear on Destination. This can happen with files that
     have grown bigger after having been copied already.
