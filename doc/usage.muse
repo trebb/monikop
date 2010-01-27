@@ -99,6 +99,9 @@ On next startup, Monikop will pull all data from this Source again.
   - Deletions on Sources won't propagate to Destination.
   - May ignore empty directories on Sources.
 ; (TODO: really?)
+  - For user information on progress, both Monikop and Pokinom rely on
+    Rsync's output which is not always reliable as to total number of
+    files.
   - During copying, occasionally obsolete versions of a file may
     temporarily appear on Destination. This can happen with files that
     have grown bigger after having been copied already.

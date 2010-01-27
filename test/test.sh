@@ -10,6 +10,7 @@ LOG=$TESTDIR/log
 RSYNC=$TESTDIR/rsync
 MONIKOP_1="../monikop ../test/monikop.config.test.1"
 MONIKOP_2="../monikop ../test/monikop.config.test.2"
+MONIKOP_3="../monikop ../test/monikop.config.test.3"
 POKINOM="../pokinom ../test/pokinom.config.test"
 TEST_COUNT=0
 FAIL_COUNT=0
@@ -22,6 +23,7 @@ function kill_rsyncd {
 function start_rsyncd {
     kill_rsyncd 2> /dev/null
     rm -f $RSYNC/rsyncd.pid 2> /dev/null
+    chmod o-rwx ../test/rsyncd.secrets.test
     rsync --daemon --config=../test/rsyncd.conf.test
 }
 
@@ -94,6 +96,7 @@ function find_and_compare {
 
 # run_test <expected_return> <test-command> <comment>
 function run_test {
+    sleep 2
     echo "RUNNING $2 [$3]"
     TEST_COUNT=$(( TEST_COUNT + 1 ))
     $2
@@ -140,13 +143,16 @@ for i in f7 f8 f9; do
     make_test_file $MNT/02/data/d1/$i 2000 200703250845.33
     make_test_file $MNT/02/data/d1/d2/$i 2000 200703250845.33
 done
+for i in 01 02; do
+    make_test_file $MNT/$i/data/.hidden_dir_$i/.hidden_file 20 200804250955.10
+done
 
 # Check how fast we are:
 
 T1=`/usr/bin/time --format="%e" rsync --recursive --times $MNT/01/data/ $MNT/03/ 2>&1 &`
 T2=`/usr/bin/time --format="%e" rsync --recursive --times $MNT/02/data/ $MNT/04/ 2>&1 &`
 INTERRUPTION_TIME_0=`echo "($T1 + $T2) * 3" | bc`
-INTERRUPTION_TIME_1=`echo "($T1 + $T2) * .1" | bc`
+INTERRUPTION_TIME_1=`echo "($T1 + $T2) * .08" | bc`
 INTERRUPTION_TIME_2=`echo "($T1 + $T2) * .82" | bc`
 echo $INTERRUPTION_TIME_0
 rm -rf $MNT/03/* $MNT/04/*
@@ -195,6 +201,11 @@ function test_monikop_simple_2 {
     find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/0{3,4,5}/measuring_data
 }
 
+function test_monikop_simple_3 {
+    $MONIKOP_3 & sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
+    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/0{3,4}/measuring_data/dir_0{1,2}
+}
+
 function test_monikop_overflow {
 # Stuff one of the destinations a bit:
     make_test_file $MNT/03/stuffing 25000 199903250845
@@ -237,11 +248,33 @@ function test_pokinom_late_destination {
     find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/05/NEW_DATA
 }
 
+function test_dirs_backed_up {
+    test -d $TESTDIR/mnt/03/backed_up && test -d $TESTDIR/mnt/04/backed_up
+}
+
+function test_pokinom_deletes_being_deleted_dir {
+    mkdir -p $MNT/0{3,4}/being_deleted
+    touch $MNT/0{3,4}/being_deleted/some_file
+    $POKINOM & sleep $INTERRUPTION_TIME_2; /bin/kill -TERM $!
+    test -d $TESTDIR/mnt/03/being_deleted || test -d $TESTDIR/mnt/04/being_deleted
+}
+
+function test_monikop_deletes_being_deleted_dir {
+    mkdir -p $MNT/0{3,4}/{being_deleted,backed_up}
+    touch $MNT/0{3,4}/{being_deleted,backed_up}/some_file
+    $MONIKOP_1 & sleep $INTERRUPTION_TIME_2; /bin/kill -TERM $!
+    test -d $TESTDIR/mnt/03/being_deleted || test -d $TESTDIR/mnt/04/being_deleted
+}
+
 start_rsyncd
 
 ##########################
 ### Run tests: Monikop
 ##########################
+
+run_test 1 test_monikop_deletes_being_deleted_dir "Monikop deletes left-over directory named being_deleted."
+
+rm -rf $MNT/0{3,4}/* $LOG
 
 chmod a-w,a-x $MNT/0{3,4}
 run_test 1 test_monikop_simple "Unwritable destination"
@@ -250,6 +283,8 @@ run_test 0 test_monikop_simple "Unwritable destination"
 
 rm -rf $MNT/0{3,4}/* $LOG
 
+run_test 0 test_monikop_simple_3 "Source-specific directories on disks"
+
 run_test 0 test_monikop_simple_late_sources "Simple run, sources coming up late."
 
 mv $MNT/03/measuring_data $MNT/03/backed_up
@@ -257,6 +292,19 @@ mv $MNT/04/measuring_data $MNT/04/backed_up
 rm -rf $LOG
 
 run_test 0 test_monikop_simple "Simple run, deletion."
+
+rm -rf $MNT/0{3,4}/* $LOG
+
+run_test 1 test_monikop_short "Interruption, finished.* or finished.*.bak deleted."
+rm -f $LOG/finished.rsync___localhost_2000_test_01_data $LOG/finished.rsync___localhost_2000_test_02_data.bak
+run_test 0 test_monikop_simple "Recovery after interruption, finished.* or finished.*.bak deleted."
+
+rm -rf $MNT/0{3,4}/* $LOG
+
+run_test 1 test_monikop_short "Interruption, finished.* and/or log.*  deleted."
+rm -f $LOG/finished.rsync___localhost_2000_test_01_data $LOG/log.rsync___localhost_2000_test_01_data
+rm -f $LOG/rm log.rsync___localhost_2000_test_02_data
+run_test 0 test_monikop_simple "Recovery after interruption, finished.* and/or log.* deleted."
 
 rm -rf $MNT/0{3,4}/* $LOG
 
@@ -291,6 +339,11 @@ run_test 0 test_monikop_simple_2 "Connection to source destroyed."
 
 rm -rf $MNT/0{3,4,5}/* $LOG
 
+##############################
+# Pokinom
+##############################
+
+run_test 1 test_pokinom_deletes_being_deleted_dir "Pokinom deletes left-over directory named being_deleted."
 
 ##############################
 # Monikop and Pokinom together
@@ -298,6 +351,7 @@ rm -rf $MNT/0{3,4,5}/* $LOG
 
 run_test 0 test_monikop_simple "Simple run in preparation for simple Pokinom test."
 run_test 0 test_pokinom_clean_finish "Simple Pokinom test."
+run_test 0 test_dirs_backed_up "Simple Pokinom test."
 
 rm -rf $MNT/05/* $LOG
 
@@ -337,6 +391,12 @@ run_test 1 test_pokinom_clean_finish "Initially, too little room on disks."
 run_test 1 test_monikop_overflow "Previously, too little room on disks."
 run_test 0 test_pokinom_clean_finish "Previously, too little room on disks."
 
+rm -rf $MNT/0{3,4,5}/* $LOG
+
+run_test 1 test_monikop_short "Unfinished by Monikop, then another full cycle."
+run_test 1 test_pokinom_clean_finish "Unfinished by Monikop, then another full cycle (Outcome unpredictable)."
+run_test 1 test_monikop_simple "Previously unfinished by Monikop, now another full cycle (Outcome unpredictable)."
+run_test 0 test_pokinom_clean_finish "Previously unfinished by Monikop, now another full cycle."
 
 # TODO: the following fails at least in part due to bugs in the tests themselves.
 rm -rf $MNT/0{1,2,3,4,5}/* $LOG
