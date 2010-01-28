@@ -126,26 +126,39 @@ if [[ $? == 1 ]]; then
 fi
 if [[ $MOUNTING_PROBLEM == 1 ]]; then exit; fi
 
+function fill_sources_with_big_files {
+    for i in f1 f2 f3; do
+        make_test_file $MNT/01/data/$i 25000 200703250845.33
+    done
+    for i in f10 f11 f12; do
+        make_test_file $MNT/02/data/$i 25000 200703250845.33
+    done
+    for i in f4 f5 f6; do
+        make_test_file $MNT/01/data/d1/$i 2000 200703250845.33
+        make_test_file $MNT/01/data/d1/d2/$i 2000 200703250845.33
+    done
+    for i in f7 f8 f9; do
+        make_test_file $MNT/02/data/d1/$i 2000 200703250845.33
+        make_test_file $MNT/02/data/d1/d2/$i 2000 200703250845.33
+    done
+}
+
+function fill_sources_with_hidden_files {
+    for i in 01 02; do
+        make_test_file $MNT/$i/data/.hidden_dir_$i/.hidden_file 20 200804250955.10
+    done
+}
+
+function fill_destinations_with_few_small_files {
+    for i in 03 04; do
+        for j in file_one file_two file_three; do
+            make_test_file $MNT/$i/measuring_data/$i/$j 20 200004250955.10
+        done
+    done
+}
+
 # Prepare data sources:
-# mkdir -p $MNT/01/data/d1/d2
-# mkdir -p $MNT/02/data/d1/d2
-for i in f1 f2 f3; do
-    make_test_file $MNT/01/data/$i 25000 200703250845.33
-done
-for i in f10 f11 f12; do
-    make_test_file $MNT/02/data/$i 25000 200703250845.33
-done
-for i in f4 f5 f6; do
-    make_test_file $MNT/01/data/d1/$i 2000 200703250845.33
-    make_test_file $MNT/01/data/d1/d2/$i 2000 200703250845.33
-done
-for i in f7 f8 f9; do
-    make_test_file $MNT/02/data/d1/$i 2000 200703250845.33
-    make_test_file $MNT/02/data/d1/d2/$i 2000 200703250845.33
-done
-for i in 01 02; do
-    make_test_file $MNT/$i/data/.hidden_dir_$i/.hidden_file 20 200804250955.10
-done
+fill_sources_with_big_files
 
 # Check how fast we are:
 
@@ -155,32 +168,33 @@ INTERRUPTION_TIME_0=`echo "($T1 + $T2) * 3" | bc`
 INTERRUPTION_TIME_1=`echo "($T1 + $T2) * .08" | bc`
 INTERRUPTION_TIME_2=`echo "($T1 + $T2) * .82" | bc`
 echo $INTERRUPTION_TIME_0
-rm -rf $MNT/03/* $MNT/04/*
+rm -rf $MNT/0{1,2,3,4}/*
 
 function test_monikop_simple {
     $MONIKOP_1 & sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
-    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/0{3,4}/measuring_data
+    sleep 2
+    find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4}/measuring_data
 }
 
 function test_monikop_simple_late_sources {
     kill_rsyncd
     $MONIKOP_1 & sleep $INTERRUPTION_TIME_2; start_rsyncd; sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
-    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/0{3,4}/measuring_data
+    find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4}/measuring_data
 }
 
 function test_monikop_short {
     $MONIKOP_1 & sleep $INTERRUPTION_TIME_1; /bin/kill -TERM $!
-    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/0{3,4}/measuring_data
+    find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4}/measuring_data
 }
 
 function test_monikop_short_2 {
     $MONIKOP_2 & sleep $INTERRUPTION_TIME_1; /bin/kill -TERM $!
-    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/0{3,4,5}/measuring_data
+    find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4,5}/measuring_data
 }
 
 function test_monikop_short_kill_rsync_first {
     $MONIKOP_2 & sleep $INTERRUPTION_TIME_1; /usr/bin/killall -KILL rsync; sleep 1; /bin/kill -TERM $!
-    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/0{3,4,5}/measuring_data
+    find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4,5}/measuring_data
     RETURN=$?
     start_rsyncd
     sleep 2
@@ -189,7 +203,7 @@ function test_monikop_short_kill_rsync_first {
 
 function test_monikop_short_cut_sources {
     $MONIKOP_2 & sleep $INTERRUPTION_TIME_1; kill_rsyncd; sleep 1; /bin/kill -TERM $!
-    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/0{3,4,5}/measuring_data
+    find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4,5}/measuring_data
     RETURN=$?
     start_rsyncd
     sleep 2
@@ -198,19 +212,19 @@ function test_monikop_short_cut_sources {
 
 function test_monikop_simple_2 {
     $MONIKOP_2 & sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
-    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/0{3,4,5}/measuring_data
+    find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4,5}/measuring_data
 }
 
 function test_monikop_simple_3 {
     $MONIKOP_3 & sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
-    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/0{3,4}/measuring_data/dir_0{1,2}
+    find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4}/measuring_data/dir_0{1,2}
 }
 
 function test_monikop_overflow {
 # Stuff one of the destinations a bit:
     make_test_file $MNT/03/stuffing 25000 199903250845
     $MONIKOP_1 & sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
-    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/0{3,4}/measuring_data
+    find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4}/measuring_data
 }
 
 function test_monikop_no_destination {
@@ -234,36 +248,64 @@ function test_monikop_no_source {
 
 function test_pokinom_clean_finish {
     $POKINOM & sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
-    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/05/NEW_DATA
+    sleep 2
+    find_and_compare $MNT/0{1,2}/data :: $MNT/05/NEW_DATA
 }
 
 function test_pokinom_short {
     $POKINOM & sleep $INTERRUPTION_TIME_1; /bin/kill -TERM $!
-    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/05/NEW_DATA
+    sleep 2
+    find_and_compare $MNT/0{1,2}/data :: $MNT/05/NEW_DATA
 }
 
 function test_pokinom_late_destination {
     kill_rsyncd
     $POKINOM & sleep $INTERRUPTION_TIME_2; start_rsyncd; sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
-    find_and_compare $TESTDIR/mnt/0{1,2}/data :: $TESTDIR/mnt/05/NEW_DATA
+    find_and_compare $MNT/0{1,2}/data :: $MNT/05/NEW_DATA
 }
 
 function test_dirs_backed_up {
-    test -d $TESTDIR/mnt/03/backed_up && test -d $TESTDIR/mnt/04/backed_up
-}
-
-function test_pokinom_deletes_being_deleted_dir {
-    mkdir -p $MNT/0{3,4}/being_deleted
-    touch $MNT/0{3,4}/being_deleted/some_file
-    $POKINOM & sleep $INTERRUPTION_TIME_2; /bin/kill -TERM $!
-    test -d $TESTDIR/mnt/03/being_deleted || test -d $TESTDIR/mnt/04/being_deleted
+    test -d $MNT/03/backed_up && test -d $MNT/04/backed_up
 }
 
 function test_monikop_deletes_being_deleted_dir {
     mkdir -p $MNT/0{3,4}/{being_deleted,backed_up}
     touch $MNT/0{3,4}/{being_deleted,backed_up}/some_file
+    touch $MNT/0{3,4}/{being_deleted,backed_up}/.some_hidden_file
     $MONIKOP_1 & sleep $INTERRUPTION_TIME_2; /bin/kill -TERM $!
-    test -d $TESTDIR/mnt/03/being_deleted || test -d $TESTDIR/mnt/04/being_deleted
+    test -d $MNT/03/being_deleted || test -d $MNT/04/being_deleted
+}
+
+function test_pokinom_deletes_being_deleted_dir {
+    mkdir -p $MNT/0{3,4}/being_deleted
+    touch $MNT/0{3,4}/being_deleted/some_file
+    touch $MNT/0{3,4}/being_deleted/.some_hidden_file
+    $POKINOM & sleep $INTERRUPTION_TIME_2; /bin/kill -TERM $!
+    test -d $MNT/03/being_deleted || test -d $MNT/04/being_deleted
+}
+
+function test_pokinom_newer_files_win {
+    fill_destinations_with_few_small_files    
+    $POKINOM & sleep $INTERRUPTION_TIME_2; /bin/kill -TERM $!
+    for i in 03 04; do
+        mv $MNT/$i/backed_up $MNT/$i/measuring_data
+        touch $MNT/$i/measuring_data/$i/*
+    done
+    $POKINOM & sleep $INTERRUPTION_TIME_2; /bin/kill -TERM $!
+    sleep 2
+    find_and_compare $MNT/0{3,4}/backed_up :: $MNT/05/NEW_DATA
+}
+
+function test_pokinom_older_files_lose {
+    fill_destinations_with_few_small_files    
+    $POKINOM & sleep $INTERRUPTION_TIME_2; /bin/kill -TERM $!
+    for i in 03 04; do
+        mv $MNT/$i/backed_up $MNT/$i/measuring_data
+    done
+    touch -t 198001011200.00 $MNT/03/measuring_data/03/file_one
+    $POKINOM & sleep $INTERRUPTION_TIME_2; /bin/kill -TERM $!
+    sleep 2
+    find_and_compare $MNT/0{3,4}/backed_up :: $MNT/05/NEW_DATA
 }
 
 start_rsyncd
@@ -345,9 +387,27 @@ rm -rf $MNT/0{3,4,5}/* $LOG
 
 run_test 1 test_pokinom_deletes_being_deleted_dir "Pokinom deletes left-over directory named being_deleted."
 
+rm -rf $MNT/0{3,4,5}/*
+
+run_test 0 test_pokinom_newer_files_win "Pokinom overwrites older files in Destination."
+
+run_test 4 test_pokinom_older_files_lose "Pokinom discards older files on removable disk."
+
 ##############################
 # Monikop and Pokinom together
 ##############################
+
+fill_sources_with_hidden_files
+
+run_test 0 test_monikop_simple "Preparation for simple Pokinom test, hidden files."
+run_test 0 test_pokinom_clean_finish "Simple Pokinom test, hidden files."
+run_test 0 test_dirs_backed_up "Simple Pokinom test, hidden files."
+run_test 1 test_monikop_short "After test with hidden files, this one should do nothing but delete backed_up."
+run_test 1 test_dirs_backed_up "Deletion of backed_up with hidden files."
+
+rm -rf $MNT/0{3,4,5}/*
+
+fill_sources_with_big_files
 
 run_test 0 test_monikop_simple "Simple run in preparation for simple Pokinom test."
 run_test 0 test_pokinom_clean_finish "Simple Pokinom test."
