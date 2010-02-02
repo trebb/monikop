@@ -96,6 +96,10 @@ function find_and_compare {
 
 # run_test <expected_return> <test-command> <comment>
 function run_test {
+    sleep 4
+    killall monikop pokinom 2> /dev/null
+    sleep 2
+    killall -KILL monikop pokinom 2> /dev/null
     sleep 2
     echo "RUNNING $2 [$3]"
     TEST_COUNT=$(( TEST_COUNT + 1 ))
@@ -170,7 +174,10 @@ INTERRUPTION_TIME_2=`echo "($T1 + $T2) * .82" | bc`
 echo $INTERRUPTION_TIME_0
 rm -rf $MNT/0{1,2,3,4}/*
 
+# Define tests:
+
 function test_monikop_simple {
+    sleep 4
     $MONIKOP_1 & sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
     sleep 2
     find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4}/measuring_data
@@ -179,21 +186,25 @@ function test_monikop_simple {
 function test_monikop_simple_late_sources {
     kill_rsyncd
     $MONIKOP_1 & sleep $INTERRUPTION_TIME_2; start_rsyncd; sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
+    sleep 2
     find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4}/measuring_data
 }
 
 function test_monikop_short {
     $MONIKOP_1 & sleep $INTERRUPTION_TIME_1; /bin/kill -TERM $!
+    sleep 2
     find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4}/measuring_data
 }
 
 function test_monikop_short_2 {
     $MONIKOP_2 & sleep $INTERRUPTION_TIME_1; /bin/kill -TERM $!
+    sleep 2
     find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4,5}/measuring_data
 }
 
 function test_monikop_short_kill_rsync_first {
     $MONIKOP_2 & sleep $INTERRUPTION_TIME_1; /usr/bin/killall -KILL rsync; sleep 1; /bin/kill -TERM $!
+    sleep 2
     find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4,5}/measuring_data
     RETURN=$?
     start_rsyncd
@@ -203,6 +214,7 @@ function test_monikop_short_kill_rsync_first {
 
 function test_monikop_short_cut_sources {
     $MONIKOP_2 & sleep $INTERRUPTION_TIME_1; kill_rsyncd; sleep 1; /bin/kill -TERM $!
+    sleep 2
     find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4,5}/measuring_data
     RETURN=$?
     start_rsyncd
@@ -212,11 +224,13 @@ function test_monikop_short_cut_sources {
 
 function test_monikop_simple_2 {
     $MONIKOP_2 & sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
+    sleep 2
     find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4,5}/measuring_data
 }
 
 function test_monikop_simple_3 {
     $MONIKOP_3 & sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
+    sleep 2
     find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4}/measuring_data/dir_0{1,2}
 }
 
@@ -224,6 +238,7 @@ function test_monikop_overflow {
 # Stuff one of the destinations a bit:
     make_test_file $MNT/03/stuffing 25000 199903250845
     $MONIKOP_1 & sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
+    sleep 2
     find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4}/measuring_data
 }
 
@@ -261,6 +276,7 @@ function test_pokinom_short {
 function test_pokinom_late_destination {
     kill_rsyncd
     $POKINOM & sleep $INTERRUPTION_TIME_2; start_rsyncd; sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
+    sleep 2
     find_and_compare $MNT/0{1,2}/data :: $MNT/05/NEW_DATA
 }
 
@@ -314,6 +330,8 @@ start_rsyncd
 ### Run tests: Monikop
 ##########################
 
+fill_sources_with_big_files
+
 run_test 1 test_monikop_deletes_being_deleted_dir "Monikop deletes left-over directory named being_deleted."
 
 rm -rf $MNT/0{3,4}/* $LOG
@@ -326,6 +344,8 @@ run_test 0 test_monikop_simple "Unwritable destination"
 rm -rf $MNT/0{3,4}/* $LOG
 
 run_test 0 test_monikop_simple_3 "Source-specific directories on disks"
+
+rm -rf $MNT/0{3,4}/* $LOG
 
 run_test 0 test_monikop_simple_late_sources "Simple run, sources coming up late."
 
@@ -397,6 +417,7 @@ run_test 4 test_pokinom_older_files_lose "Pokinom discards older files on remova
 # Monikop and Pokinom together
 ##############################
 
+rm -rf $MNT/0{1,2,3,4,5}/*
 fill_sources_with_hidden_files
 
 run_test 0 test_monikop_simple "Preparation for simple Pokinom test, hidden files."
@@ -405,13 +426,12 @@ run_test 0 test_dirs_backed_up "Simple Pokinom test, hidden files."
 run_test 1 test_monikop_short "After test with hidden files, this one should do nothing but delete backed_up."
 run_test 1 test_dirs_backed_up "Deletion of backed_up with hidden files."
 
-rm -rf $MNT/0{3,4,5}/*
-
+rm -rf $MNT/0{1,2,3,4,5}/*
 fill_sources_with_big_files
 
 run_test 0 test_monikop_simple "Simple run in preparation for simple Pokinom test."
 run_test 0 test_pokinom_clean_finish "Simple Pokinom test."
-run_test 0 test_dirs_backed_up "Simple Pokinom test."
+run_test 0 test_dirs_backed_up "Simple Pokinom test: directories renamed?."
 
 rm -rf $MNT/05/* $LOG
 
@@ -475,6 +495,9 @@ run_test 0 test_monikop_simple "Weird file names."
 run_test 0 test_pokinom_clean_finish "Weird file names."
 run_test 1 test_monikop_short "Weird file names, second run: nothing to do."
 
+########################################
+# End of tests
+########################################
 kill_rsyncd
 
 echo "TOTAL NUMBER OF TESTS: $TEST_COUNT"
