@@ -50,6 +50,57 @@ function make_test_file {
     touch -t $3 $1
 }
 
+## # find_and_compare <origin_dir> <origin_dir> ... :: <copy_dir> <copy_dir> ...
+## function find_and_compare {
+##     ORIGIN_DIRS=$1; shift;
+##     until [[ $1 == "::" ]]; do
+##         ORIGIN_DIRS="$ORIGIN_DIRS $1"; shift;
+##     done
+##     shift
+##     COPY_DIRS=$@
+##     MISSING=""
+##     DIVERGING=""
+##     DIVERGING_MTIME=""
+##     RETURN_VALUE=0
+##     for ORIGIN_DIR in $ORIGIN_DIRS; do
+##         find $ORIGIN_DIR -type f -print0 2> /dev/null | while read -d $'\000' ORIGIN_FILE; do
+##             for COPY_DIR in $COPY_DIRS; do
+##                 NAME_IN_COPY_DIR=$COPY_DIR/${ORIGIN_FILE#$ORIGIN_DIR/}
+##                 FOUND=`find $COPY_DIR -path "$NAME_IN_COPY_DIR" -print 2> /dev/null`
+##                 if [[ $FOUND != "" ]] ; then
+##                     break
+##                 fi
+##             done
+##             if [[ $FOUND == "" ]] ; then
+##                 MISSING="$MISSING $ORIGIN_FILE";
+##                 echo "M: $MISSING"
+##             elif ! cmp --quiet "$ORIGIN_FILE" "$FOUND"; then
+##                 DIVERGING="$DIVERGING $ORIGIN_FILE"
+##             elif [[ `stat --printf="%Y" $ORIGIN_FILE` != `stat --printf="%Y" $FOUND` ]]; then
+##                 DIVERGING_MTIME="$DIVERGING_MTIME $ORIGIN_FILE"
+##             fi
+##             echo "MM: $MISSING"
+##         done
+##         echo "MMM: $MISSING"
+##     done
+##     echo "MMMM: $MISSING"
+## 
+##     if [[ $MISSING != "" ]]; then
+##         RETURN_VALUE=1
+##         echo "MISSING: $MISSING"
+##     fi
+##     if [[ $DIVERGING != "" ]]; then
+##         RETURN_VALUE=$((return_value + 2))
+##         echo "DIVERGING: $DIVERGING"
+##     fi
+##     if [[ $DIVERGING_MTIME != "" ]]; then
+##         RETURN_VALUE=$((return_value + 4))
+##         echo "DIVERGING MTIME: $DIVERGING_MTIME"
+##     fi
+##     return $RETURN_VALUE
+## }
+## 
+
 # find_and_compare <origin_dir> <origin_dir> ... :: <copy_dir> <copy_dir> ...
 function find_and_compare {
     ORIGIN_DIRS=$1; shift;
