@@ -1,7 +1,8 @@
 #! /bin/bash
 
-# Caveats: kills all killable rsyncs
-#          don't disturb test timing by putting too much (extra) load on the machine
+# Caveats: - kills all killable rsyncs
+#          - don't disturb test timing by putting too much (extra) load
+#            on the machine
 
 TESTDIR=/tmp/monikop-test
 DEV=$TESTDIR/dev
@@ -50,57 +51,6 @@ function make_test_file {
     touch -t $3 $1
 }
 
-## # find_and_compare <origin_dir> <origin_dir> ... :: <copy_dir> <copy_dir> ...
-## function find_and_compare {
-##     ORIGIN_DIRS=$1; shift;
-##     until [[ $1 == "::" ]]; do
-##         ORIGIN_DIRS="$ORIGIN_DIRS $1"; shift;
-##     done
-##     shift
-##     COPY_DIRS=$@
-##     MISSING=""
-##     DIVERGING=""
-##     DIVERGING_MTIME=""
-##     RETURN_VALUE=0
-##     for ORIGIN_DIR in $ORIGIN_DIRS; do
-##         find $ORIGIN_DIR -type f -print0 2> /dev/null | while read -d $'\000' ORIGIN_FILE; do
-##             for COPY_DIR in $COPY_DIRS; do
-##                 NAME_IN_COPY_DIR=$COPY_DIR/${ORIGIN_FILE#$ORIGIN_DIR/}
-##                 FOUND=`find $COPY_DIR -path "$NAME_IN_COPY_DIR" -print 2> /dev/null`
-##                 if [[ $FOUND != "" ]] ; then
-##                     break
-##                 fi
-##             done
-##             if [[ $FOUND == "" ]] ; then
-##                 MISSING="$MISSING $ORIGIN_FILE";
-##                 echo "M: $MISSING"
-##             elif ! cmp --quiet "$ORIGIN_FILE" "$FOUND"; then
-##                 DIVERGING="$DIVERGING $ORIGIN_FILE"
-##             elif [[ `stat --printf="%Y" $ORIGIN_FILE` != `stat --printf="%Y" $FOUND` ]]; then
-##                 DIVERGING_MTIME="$DIVERGING_MTIME $ORIGIN_FILE"
-##             fi
-##             echo "MM: $MISSING"
-##         done
-##         echo "MMM: $MISSING"
-##     done
-##     echo "MMMM: $MISSING"
-## 
-##     if [[ $MISSING != "" ]]; then
-##         RETURN_VALUE=1
-##         echo "MISSING: $MISSING"
-##     fi
-##     if [[ $DIVERGING != "" ]]; then
-##         RETURN_VALUE=$((return_value + 2))
-##         echo "DIVERGING: $DIVERGING"
-##     fi
-##     if [[ $DIVERGING_MTIME != "" ]]; then
-##         RETURN_VALUE=$((return_value + 4))
-##         echo "DIVERGING MTIME: $DIVERGING_MTIME"
-##     fi
-##     return $RETURN_VALUE
-## }
-## 
-
 # find_and_compare <origin_dir> <origin_dir> ... :: <copy_dir> <copy_dir> ...
 function find_and_compare {
     ORIGIN_DIRS=$1; shift;
@@ -114,38 +64,40 @@ function find_and_compare {
     DIVERGING_MTIME=""
     RETURN_VALUE=0
     for ORIGIN_DIR in $ORIGIN_DIRS; do
-        for ORIGIN_FILE in `find $ORIGIN_DIR -type f 2> /dev/null`; do
+        while read -r -d $'\0' ORIGIN_FILE; do
+            ORIGIN_FILE_ESCAPED=${ORIGIN_FILE//\\/\\\\}
+            ORIGIN_FILE_ESCAPED=${ORIGIN_FILE_ESCAPED//\[/\\[}
             for COPY_DIR in $COPY_DIRS; do
-                FOUND=`find $COPY_DIR -path "$COPY_DIR/${ORIGIN_FILE#$ORIGIN_DIR/}" 2> /dev/null`
-                if [[ $FOUND != "" ]] ; then
+                FOUND=`find $COPY_DIR -path "$COPY_DIR/${ORIGIN_FILE_ESCAPED#$ORIGIN_DIR/}" -print0 2> /dev/null`
+                if [[ -n "$FOUND" ]] ; then
                     break
                 fi
             done
-            if [[ $FOUND == "" ]] ; then
+            if [[ -z "$FOUND" ]] ; then
                 MISSING="$MISSING $ORIGIN_FILE";
-            elif ! cmp --quiet $ORIGIN_FILE $FOUND; then
+            elif ! cmp --quiet "$ORIGIN_FILE" "$FOUND"; then
                 DIVERGING="$DIVERGING $ORIGIN_FILE"
-            elif [[ `stat --printf="%Y" $ORIGIN_FILE` != `stat --printf="%Y" $FOUND` ]]; then
+            elif [[ `stat --printf="%Y" "$ORIGIN_FILE"` != `stat --printf="%Y" "$FOUND"` ]]; then
                 DIVERGING_MTIME="$DIVERGING_MTIME $ORIGIN_FILE"
             fi
-        done
+        done < <(find $ORIGIN_DIR -type f -print0 2> /dev/null)
     done
-    if [[ $MISSING != "" ]]; then
+    if [[ -n $MISSING ]]; then
         RETURN_VALUE=1
         echo "MISSING: $MISSING"
     fi
-    if [[ $DIVERGING != "" ]]; then
+    if [[ -n $DIVERGING ]]; then
         RETURN_VALUE=$((return_value + 2))
         echo "DIVERGING: $DIVERGING"
     fi
-    if [[ $DIVERGING_MTIME != "" ]]; then
+    if [[ -n $DIVERGING_MTIME ]]; then
         RETURN_VALUE=$((return_value + 4))
         echo "DIVERGING MTIME: $DIVERGING_MTIME"
     fi
     return $RETURN_VALUE
 }
 
-# run_test <expected_return> <test-command> <comment>
+# run_test <return_value> <test> <documentation>
 function run_test {
     sleep 4
     killall monikop pokinom 2> /dev/null
@@ -164,11 +116,11 @@ function run_test {
     sleep 2
 }
 
+# Create and mount test drives:
 umount $MNT/* #2> /dev/null
 rm -rf $DEV $MNT $LOG
 mkdir -p $DEV $MNT $RSYNC
 
-# Create and mount test drives:
 for i in 01 02 03 04; do
     make_test_drive $i 102400
     if [[ $? == 1 ]]; then
@@ -212,20 +164,19 @@ function fill_destinations_with_few_small_files {
     done
 }
 
-# Prepare data sources:
-fill_sources_with_big_files
-
 # Check how fast we are:
-
+fill_sources_with_big_files
 T1=`/usr/bin/time --format="%e" rsync --recursive --times $MNT/01/data/ $MNT/03/ 2>&1 &`
 T2=`/usr/bin/time --format="%e" rsync --recursive --times $MNT/02/data/ $MNT/04/ 2>&1 &`
 INTERRUPTION_TIME_0=`echo "($T1 + $T2) * 3" | bc`
 INTERRUPTION_TIME_1=`echo "($T1 + $T2) * .08" | bc`
 INTERRUPTION_TIME_2=`echo "($T1 + $T2) * .82" | bc`
-echo $INTERRUPTION_TIME_0
+echo "One run of a testee takes about $INTERRUPTION_TIME_0 seconds."
 rm -rf $MNT/0{1,2,3,4}/*
 
+######################################################################
 # Define tests:
+######################################################################
 
 function test_monikop_simple {
     sleep 4
@@ -375,6 +326,9 @@ function test_pokinom_older_files_lose {
     find_and_compare $MNT/0{3,4}/backed_up :: $MNT/05/NEW_DATA
 }
 
+######################################################################
+# Run the tests:
+######################################################################
 start_rsyncd
 
 ##########################
@@ -453,7 +407,7 @@ run_test 0 test_monikop_simple_2 "Connection to source destroyed."
 rm -rf $MNT/0{3,4,5}/* $LOG
 
 ##############################
-# Pokinom
+# Run tests: Pokinom
 ##############################
 
 run_test 1 test_pokinom_deletes_being_deleted_dir "Pokinom deletes left-over directory named being_deleted."
@@ -464,9 +418,9 @@ run_test 0 test_pokinom_newer_files_win "Pokinom overwrites older files in Desti
 
 run_test 4 test_pokinom_older_files_lose "Pokinom discards older files on removable disk."
 
-##############################
-# Monikop and Pokinom together
-##############################
+##################################################
+# Run tests: Monikop and Pokinom together
+##################################################
 
 rm -rf $MNT/0{1,2,3,4,5}/*
 fill_sources_with_hidden_files
@@ -529,19 +483,30 @@ run_test 1 test_pokinom_clean_finish "Unfinished by Monikop, then another full c
 run_test 1 test_monikop_simple "Previously unfinished by Monikop, now another full cycle (Outcome unpredictable)."
 run_test 0 test_pokinom_clean_finish "Previously unfinished by Monikop, now another full cycle."
 
-# TODO: the following fails at least in part due to bugs in the tests themselves.
 rm -rf $MNT/0{1,2,3,4,5}/* $LOG
+
 make_test_file $MNT/01/data/d1/f1 10 200703250845.33
 make_test_file $MNT/01/data/d2/f3 10 200703250845.33
-make_test_file $MNT/01/data/d3/d4/f4 10 200703250845.33
-make_test_file $MNT/01/data/f2 10 200703250845.33
+make_test_file $MNT/01/data/f4 10 200703250845.33
 make_test_file $MNT/01/data/f5 10 200703250845.33
+make_test_file $MNT/01/data/f6 10 200703250845.33
+make_test_file $MNT/01/data/f7 10 200703250845.33
+make_test_file $MNT/01/data/f8 10 200703250845.33
+make_test_file $MNT/01/data/f9 10 200703250845.33
+make_test_file $MNT/01/data/f10 10 200703250845.33
+make_test_file $MNT/01/data/.f11 10 200703250845.33
+make_test_file $MNT/01/data/d3/d4/f4 10 200703250845.33
 mv $MNT/01/data/d1/f1 "$MNT/01/data/d1/Große Datei"
 mv $MNT/01/data/d1 "$MNT/01/data/Schönes Verzeichnis"
-mv $MNT/01/data/f2 "$MNT/01/data/{[cool]} file\ n\\a\\m\\e."
-# Not sure if this will ever work:
-mv $MNT/01/data/d2 $MNT/01/data/.rsync_partial
-mv $MNT/01/data/d3/d4 $MNT/01/data/d3/.rsync_partial
+mv $MNT/01/data/f4 "$MNT/01/data/[square brackets]"
+mv $MNT/01/data/f5 "$MNT/01/data/\`backquotes\`"
+mv $MNT/01/data/f6 "$MNT/01/data/'single quotes'"
+mv $MNT/01/data/f7 "$MNT/01/data/\"double quotes\""
+mv $MNT/01/data/f8 "$MNT/01/data/b\\a\\ckslashes"
+mv $MNT/01/data/f9 "`echo -e "$MNT/01/data/newlines\nin\nname"`";
+## Won't work:
+#mv $MNT/01/data/d2 $MNT/01/data/.rsync_partial
+#mv $MNT/01/data/d3/d4 $MNT/01/data/d3/.rsync_partial
 run_test 0 test_monikop_simple "Weird file names."
 run_test 0 test_pokinom_clean_finish "Weird file names."
 run_test 1 test_monikop_short "Weird file names, second run: nothing to do."
