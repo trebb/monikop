@@ -1,4 +1,7 @@
 *.html
 monikop.config
+pokinom.config
 *~
 *.png
+*.tar.gz
+*.xml

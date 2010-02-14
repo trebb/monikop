@@ -15,6 +15,13 @@ my @pokinom_banner = (
  "_/          _/_/    _/    _/  _/_/_/  _/      _/    _/_/    _/      _/    ",
     );
 	
+# Version number. Should agree with Pokinom's one.
+# Format: v<1>.<2>.<3> where
+#         <3> = bug fix,
+#         <2> = new feature,
+#         <1> = incompatible change.
+my $version = 'v0.0.0';
+
 # Debug mode:
 # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
 my $debug = 0;
@@ -327,6 +334,7 @@ unless ($debug == 1) {
             $window_top->box(0,0);
             $window_top->addstr(0, 30, " P r o g r e s s ");
             $window_top->attroff($CYAN);
+            $window_top->addstr(LINES() - 9, 1, "$version");
             my $sources_format = "%-25s%-18s%-8s";
             $window_top->attron(A_BOLD);
             $window_top->addstr(1, 12,
@@ -393,3 +401,6 @@ map {
 
 $rsync_worker_thread->join if $rsync_worker_thread;
 $display_thread->join if $display_thread;
+
+__END__
+

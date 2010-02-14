@@ -15,6 +15,8 @@ my @pokinom_banner = (
  "_/          _/_/    _/    _/  _/_/_/  _/      _/    _/_/    _/      _/    ",
     );
 	
+my $version = "v0.0.1";
+
 # Debug mode:
 # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
 my $debug = 0;
@@ -138,6 +140,7 @@ unless ($debug == 1) {
             $window_top->box(0,0);
             $window_top->addstr(0, 30, " P r o g r e s s ");
             $window_top->attroff($CYAN);
+            $window_top->addstr(15, 1, "$version");
             my $sources_format = "%-25s%-18s%-8s";
             $window_top->attron(A_BOLD);
             $window_top->addstr(1, 12,

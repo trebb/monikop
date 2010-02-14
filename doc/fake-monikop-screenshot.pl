@@ -16,6 +16,8 @@ my @monikop_banner = (
   "_/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/         ",
   );
 	
+$version = "v0.0.1";
+
 # Debug mode:
 # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
 my $debug = 0;
@@ -259,6 +261,7 @@ unless ($debug == 1) {
                 $window_center->addstr($line_number, 2, $_);
                 ++ $line_number;
             } @monikop_banner;
+            $window_center->addstr(4, 72, "$version");
             $window_center->move(0, 0);
 
             $window_bottom->box(0,0);

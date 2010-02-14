@@ -1,0 +1,16 @@
+* Initial release v0.0.0 
+
+  - All tests pass.
+
+  - We release a tarball on ohloh.net (where the release process is
+    scriptable).
+
+  - Monikop and Pokinom show their version number.
+    
+       
+   
+;  End of NEWS
+
+; Local Variables:
+; mode: outline
+; End:

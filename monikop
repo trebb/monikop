@@ -16,8 +16,15 @@ my @monikop_banner = (
   "_/      _/    _/_/    _/      _/  _/_/_/  _/    _/    _/_/    _/         ",
   );
 	
+# Version number. Should agree with Pokinom's one.
+# Format: v<1>.<2>.<3> where
+#         <3> = bug fix,
+#         <2> = new feature,
+#         <1> = incompatible change.
+my $version = 'v0.0.0';
+
 # Debug mode:
-# 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
+# 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file).
 my $debug = 0;
 $debug = $ARGV[1] if $ARGV[1];
 
@@ -543,6 +550,7 @@ unless ($debug == 1) {
                 $window_center->addstr($line_number, 2, $_);
                 ++ $line_number;
             } @monikop_banner;
+            $window_center->addstr(4, 78 - length $version, "$version");
             $window_center->move(0, 0);
 
             $window_bottom->box(0,0);
