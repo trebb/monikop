@@ -11,10 +11,10 @@ work. Adapt installation instructions accordingly.
 
 Debian Packages needed:
 
- - to install from a git repository: git-core;
-
  - to run Monikop (on Rover) or Pokinom (in office): 
    rsync, mingetty, sudo, libcurses-perl, libfile-rsync-perl;
+
+ - to install from a git repository: git-core;
 
  - to run the tests: bc, time.
 
@@ -112,7 +112,12 @@ and call
 Create a user on both Monikop's and Pokinom's machine. For
 description's sake, we assume they're called m-operator.
 
-Inside m-operator's home directory, [[download][get Monikop (and Pokinom)]] and
+Inside m-operator's home directory, [[download][get Monikop (and Pokinom)]];
+unpack the tarball:
+
+=$ tar -xzf monikop-<version>.tar.gz=
+
+=$ mv monikop-<version> monikop=
 
 =$ cd monikop=.
 

@@ -5,7 +5,14 @@
 
 * Download
 
-Get Monikop's Git repository:
+** Latest Release (tar.gz)
+
+Check out the [[news][Release Notes]].
+
+[[http://ohloh.net/p/monikop/download?package=Monikop&release=latest][Download monikop.tar.gz]]
+(via [[http://ohloh.net/p/monikop][Ohloh]]).
+
+** Development Version (Git Repository)
 
 =$ git clone git://git.berlios.de/monikop=
 
@@ -17,6 +24,3 @@ or
 
 =$ git-clone http://repo.or.cz/r/monikop.git=
 
-
-There aren't any releases at the moment. If you need a tarball,
-you can get one [[http://repo.or.cz/w/monikop.git/snapshot/][here]].

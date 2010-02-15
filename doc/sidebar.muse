@@ -1,5 +1,4 @@
  - [[index][Introduction]]
- - [[download][Download]]
  - [[installation][Installation]]
    - [[installation#Prepare_Removable_Disks][Prepare Removable Disks]]
    - [[installation#Configure_Monikop_and_Pokinom][Configure Monikop and Pokinom]]
@@ -9,6 +8,8 @@
  - [[usage][Usage]]
  - [[license][License]]
  - [[screenshots][Screenshots]]
+ - [[download][Download]]
+ - [[news][Release Notes]]
 
 <br>
 <br>

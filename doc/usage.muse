@@ -57,7 +57,20 @@ must be rebooted once this temporarily hasn't been the case.
 ;    - fsck-pokinom: to be run by root
 
 
-** Data Recovery
+** Crash Recovery
+
+Removable disks may get lost before they reach Destination, or
+Destination may crash shortly after receiving fresh data. The
+following may help in these cases.
+
+*** Data Recovery from Source(s) on Rover
+
+On Monikop's host, stop Monikop and delete the log files whose
+directory and name prefix is set in [[installation#monikop.config][monikop.config]] by
+=$rsync_log_prefix= and =$finished_prefix=, and whose names resemble the
+Source they belong to.
+
+On next startup, Monikop will pull all data from this Source again.
 
 *** Data Loss on Destination: Recovery from Removable Disks
 
@@ -76,14 +89,14 @@ in both [[installation#monikop.config][monikop.config]] and
    and start deleting it while a new =$path_under_mount_point= is
    created and filled with fresh data.
 
-*** Recovery from Source(s) on Rover
+*** Disk Failure
 
-On Monikop's host, stop Monikop and delete the log files whose directories and name
-prefixes are set in [[installation#monikop.config][monikop.config]] by
-=$rsync_log_prefix= and =$finished_prefix=, and whose names resemble
-the Source they belong to.
+Suppose the system reports disk error on (say) /dev/sdb1. What is it's
+label?
 
-On next startup, Monikop will pull all data from this Source again.
+=ls -l /dev/disk/by-label=
+
+shows the mapping.
 
 
 * Bugs
@@ -93,23 +106,18 @@ On next startup, Monikop will pull all data from this Source again.
     Monikop and Pokinom are unable to tell whether a file is transferred
     completely. You should be able to assert completeness of your
     files by other means.
-  - Payload data must not contain any directories with the names set
-    by =$rsync_partial_dir_name= in 
-    [[installation#monikop][monikop.config]]/[[installation#pokinom.config][pokinom.config]]
+  - Empty directories on Sources are being ignored.
+  - Any directories on Sources whose names conflict with the setting
+    =$rsync_partial_dir_name= in [[installation#monikop][monikop.config]] are being ignored.
   - Deletions on Sources won't propagate to Destination.
-  - May ignore empty directories on Sources.
-; (TODO: really?)
   - For user information on progress, both Monikop and Pokinom rely on
-    Rsync's output which is not always reliable as to total number of
-    files.
+    Rsync's output which is not always reliable as to the total number
+    of files.
   - During copying, occasionally obsolete versions of a file may
     temporarily appear on Destination. This can happen with files that
     have grown bigger after having been copied already.
   - Frequent power cuts (as opposed to normal shutdown operations) may
     compromise efficiency in terms of disk usage.
-  - By running multiple instances of Rsync, Monikop puts considerable strain
-    on the system, which may reveal previously unnoticed hardware faults.
-
-; System reports disk error on (say) /dev/sdb1. What is it's label?
-; ls -l /dev/disk/by-label
-
+  - By running multiple instances of Rsync, Monikop puts considerable
+    strain on the system. This may reveal previously unnoticed
+    hardware faults.
