@@ -158,6 +158,14 @@ function fill_sources_with_hidden_files {
     done
 }
 
+function fill_sources_with_few_small_files {
+    for i in 01 02; do
+        for j in file_one file_two file_three; do
+            make_test_file $MNT/$i/data/$j.$i 20 200004250955.10
+        done
+    done
+}
+
 function fill_destinations_with_few_small_files {
     for i in 03 04; do
         for j in file_one file_two file_three; do
@@ -333,9 +341,9 @@ function test_pokinom_older_files_lose {
 ######################################################################
 start_rsyncd
 
-##########################
-### Run tests: Monikop
-##########################
+#########################
+## Run tests: Monikop
+#########################
 
 fill_sources_with_big_files
 
@@ -407,6 +415,24 @@ run_test 1 test_monikop_short_cut_sources "Connection to source destroyed."
 run_test 0 test_monikop_simple_2 "Connection to source destroyed."
 
 rm -rf $MNT/0{3,4,5}/* $LOG
+
+fill_sources_with_few_small_files
+
+run_test 0 test_monikop_short "Don't re-rsync after deletion of finished.* (Preparation #1)."
+rm -rf $MNT/{03,04}/*
+run_test 1 test_monikop_short "Don't re-rsync after deletion of finished.* (Preparation #2, fill finished.*)."
+rm -f $LOG/log.rsync___localhost_2000_test_*
+rm -f $LOG/finished.rsync___localhost_2000_test_*_data
+run_test 1 test_monikop_short "Don't re-rsync after deletion of finished.*"
+rm -rf $MNT/0{3,4}/* $LOG
+run_test 0 test_monikop_short "Don't re-rsync after deletion of finished.*.bak (Preparation #1)."
+rm -rf $MNT/{03,04}/*
+run_test 1 test_monikop_short "Don't re-rsync after deletion of finished.*.bak (Preparation #2, fill finished.*)."
+rm -f $LOG/log.rsync___localhost_2000_test_*
+rm -f $LOG/finished.rsync___localhost_2000_test_*_data.bak
+run_test 1 test_monikop_short "Don't re-rsync after deletion of finished.*.bak."
+
+rm -rf $MNT/0{3,4}/* $LOG
 
 ##############################
 # Run tests: Pokinom

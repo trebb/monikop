@@ -180,8 +180,8 @@ sub safe_read {
     my ($filename) = @_;
     my $filename_a = $filename;
     my $filename_b = $filename . $safe_file_backup_suffix;
-    if (stat $filename_a) { my $filename = $filename_a }
-    elsif (stat $filename_b) { my $filename = $filename_b }
+    if (stat $filename_a) { $filename = $filename_a }
+    elsif (stat $filename_b) { $filename = $filename_b }
     else { return () }
     debug_print "SAFE_READ: $filename";
     read_list $filename;
