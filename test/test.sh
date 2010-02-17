@@ -4,6 +4,8 @@
 #          - don't disturb test timing by putting too much (extra) load
 #            on the machine
 
+killall --quiet rsync
+
 TESTDIR=/tmp/monikop-test
 DEV=$TESTDIR/dev
 MNT=$TESTDIR/mnt

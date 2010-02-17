@@ -353,17 +353,16 @@ if (scalar @destination_roots) {
 	$progress_ratios{$_} = "?"; # Initialize for UI
 	$rsync_worker_thread{$_} = async {
 	    $SIG{TERM} = sub { threads->exit() };
+            my $rsync_log_name = $rsync_log_prefix . $_;
+            my $finished_name = $finished_prefix . $_;
+            debug_print 'rsync_preparation_form:' .
+                rsync_preparation_form ($_). "\n";
+            eval rsync_preparation_form $_;
+            debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
 	    while (1) {
-		my $rsync_log_name = $rsync_log_prefix . $_;
-		my $finished_name = $finished_prefix . $_;
-		debug_print 'rsync_preparation_form:' .
-                    rsync_preparation_form ($_). "\n";
-		eval rsync_preparation_form $_;
-		debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
 		debug_print 'rsync_dir_exec_form $_:'.
                     $rsync_dir_exec_form{$_} () . "\n";
 		my @rsync_ls = eval $rsync_dir_exec_form{$_}();
-		eval $rsync_dir_err_form{$_}();
 		$reachable{$_} = eval $rsync_dir_err_form{$_}() ? 0 : 1;
 		debug_print "REACHABLE: $reachable{$_}\n";
 		if ($reachable{$_}) {
