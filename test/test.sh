@@ -1,6 +1,6 @@
 #! /bin/bash
 
-# Caveats: - kills all killable rsyncs
+# Caveats: - kills all killable instances of rsync, monikop, pokinom
 #          - don't disturb test timing by putting too much (extra) load
 #            on the machine
 
@@ -107,13 +107,17 @@ function run_test {
     killall -KILL monikop pokinom 2> /dev/null
     sleep 2
     echo "RUNNING $2 [$3]"
-    TEST_COUNT=$(( TEST_COUNT + 1 ))
     $2
     RETURN_VALUE=$?
-    if [[ $RETURN_VALUE -ne $1 ]]; then
-        FAIL_COUNT=$(( FAIL_COUNT + 1 ))
-        FAILED_TESTS="$FAILED_TESTS$2($1? $RETURN_VALUE!) [$3]\n"
-        echo "$2 should have returned $1 but returned $RETURN_VALUE instead."
+    if [[ $1 != "ignore" ]]; then
+        TEST_COUNT=$(( TEST_COUNT + 1 ))
+        if [[ $RETURN_VALUE -ne $1 ]]; then
+            FAIL_COUNT=$(( FAIL_COUNT + 1 ))
+            FAILED_TESTS="$FAILED_TESTS$2($1? $RETURN_VALUE!) [$3]\n"
+            echo "$2 should have returned $1 but returned $RETURN_VALUE instead."
+        fi
+    else
+        echo "(DUMMY TEST, IGNORED)"
     fi
     sleep 2
 }
@@ -386,7 +390,7 @@ run_test 0 test_monikop_simple "Recovery after interruption, finished.* and/or l
 rm -rf $MNT/0{3,4}/* $LOG
 
 run_test 1 test_monikop_short_2 "Repeated interruption."
-run_test 1 test_monikop_short_2 "Repeated interruption (may pass unexpectedly due to test timing)."
+run_test ignore test_monikop_short_2 "Repeated interruption (No test, side effect only)."
 run_test 0 test_monikop_simple_2 "Repeated interruption."
 
 mv $MNT/03/measuring_data $MNT/03/backed_up
@@ -395,7 +399,7 @@ mv $MNT/05/measuring_data $MNT/05/backed_up
 rm -rf $LOG
 
 run_test 1 test_monikop_short_2 "Repeated interruption, deletion."
-run_test 1 test_monikop_short_2 "Repeated interruption, deletion (may pass unexpectedly due to test timing)."
+run_test ignore test_monikop_short_2 "Repeated interruption, deletion (No test, side offect only)."
 run_test 0 test_monikop_simple_2 "Repeated interruption, deletion."
 
 rm -rf $MNT/0{3,4,5}/* $LOG
@@ -418,14 +422,14 @@ rm -rf $MNT/0{3,4,5}/* $LOG
 
 fill_sources_with_few_small_files
 
-run_test 0 test_monikop_short "Don't re-rsync after deletion of finished.* (Preparation #1)."
+run_test 0 test_monikop_simple "Don't re-rsync after deletion of finished.* (Preparation #1)."
 rm -rf $MNT/{03,04}/*
 run_test 1 test_monikop_short "Don't re-rsync after deletion of finished.* (Preparation #2, fill finished.*)."
 rm -f $LOG/log.rsync___localhost_2000_test_*
 rm -f $LOG/finished.rsync___localhost_2000_test_*_data
 run_test 1 test_monikop_short "Don't re-rsync after deletion of finished.*"
 rm -rf $MNT/0{3,4}/* $LOG
-run_test 0 test_monikop_short "Don't re-rsync after deletion of finished.*.bak (Preparation #1)."
+run_test 0 test_monikop_simple "Don't re-rsync after deletion of finished.*.bak (Preparation #1)."
 rm -rf $MNT/{03,04}/*
 run_test 1 test_monikop_short "Don't re-rsync after deletion of finished.*.bak (Preparation #2, fill finished.*)."
 rm -f $LOG/log.rsync___localhost_2000_test_*
@@ -507,8 +511,8 @@ run_test 0 test_pokinom_clean_finish "Previously, too little room on disks."
 rm -rf $MNT/0{3,4,5}/* $LOG
 
 run_test 1 test_monikop_short "Unfinished by Monikop, then another full cycle."
-run_test 1 test_pokinom_clean_finish "Unfinished by Monikop, then another full cycle (Outcome unpredictable)."
-run_test 1 test_monikop_simple "Previously unfinished by Monikop, now another full cycle (Outcome unpredictable)."
+run_test ignore test_pokinom_clean_finish "Unfinished by Monikop, then another full cycle (Outcome unpredictable)."
+run_test ignore test_monikop_simple "Previously unfinished by Monikop, now another full cycle (Outcome unpredictable)."
 run_test 0 test_pokinom_clean_finish "Previously unfinished by Monikop, now another full cycle."
 
 rm -rf $MNT/0{1,2,3,4,5}/* $LOG
