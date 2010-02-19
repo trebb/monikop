@@ -12,15 +12,15 @@ workdir=`pwd`
 function latest_NEWS_section {
     # Extract topmost section from NEWS.
     sed -nr \
-        -e '/^\* .*v[0-9]+\.[0-9]+\.?[0-9]* .*$/,/(^\* .*v[0-9]+\.[0-9]+\.?[0-9]* .*$)|(^; .*$)/{H}' \
-        -e '${g; s/(\n\* .*v[0-9]+\.[0-9]+\.?[0-9]* .*$)|(\n; .*$)//m2; s/^\n//m1; p}' \
+        -e '/^\* .*v[0-9]+\.[0-9]+\.[0-9]+.*$/,/(^\* .*v[0-9]+\.[0-9]+\.[0-9]+.*$)|(^; .*$)/{H}' \
+        -e '${g; s/(\n\* .*v[0-9]+\.[0-9]+\.[0-9]+.*$)|(\n; .*$)//m2; s/^\n//m1; p}' \
         $workdir/../NEWS
 }
 
 function latest_version_number {
     # Extract version string from topmost headline in NEWS.
     latest_NEWS_section | \
-        grep -Eom 1 -e 'v[0-9]+\.[0-9]+\.?[0-9]*'
+        grep -Eom 1 -e 'v[0-9]+\.[0-9]+\.[0-9]+'
 }
 
 function naked_version_number {
@@ -36,6 +36,13 @@ function program_version_number {
 }
 
 echo "Tagging `latest_version_number`"
+
+if [[ -n `git-diff` ]]; then
+    echo "We have uncommitted changes."
+    git-status
+    echo "Aborting."
+    exit
+fi;
 
 if [[ `program_version_number ../monikop` != `latest_version_number` ]]; then
     echo "Version number mismatch between monikop and NEWS. Aborting."
