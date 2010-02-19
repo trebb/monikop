@@ -2,7 +2,7 @@
 # Make and upload Monikop's web page.
 # (The screenshots need to be made manually.)
 
-./build-and-upload-html.el
+./build-html.el
 
 (
     cd ../html
