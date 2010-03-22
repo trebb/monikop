@@ -1,7 +1,7 @@
 * v0.1.0 UI change
 
   - In Monikop, "Files To Copy" switches from ratio to percentage if
-    the former grows too wide. This happened with thens of thousands
+    the former grows too wide. This happened with tens of thousands
     of files.
 
 * Bug fix v0.0.1
