@@ -21,7 +21,7 @@ my @monikop_banner = (
 #         <3> = bug fix,
 #         <2> = new feature,
 #         <1> = incompatible change.
-my $version = 'v0.0.1';
+my $version = 'v0.1.0';
 
 # Debug mode:
 # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file).
@@ -523,6 +523,10 @@ unless ($debug == 1) {
             map {
                 my $source = $_;
                 my $current_destination = '?';
+                my $progress_ratio = $progress_ratios{$source};
+                if (length $progress_ratio > 9) {
+                    $progress_ratio = eval ("100*" . $progress_ratio) . "%";
+                }
                 if (exists $destination_source_is_writing_to{$source}) {
                     $current_destination =
                         $destination_source_is_writing_to{$source};
@@ -533,7 +537,7 @@ unless ($debug == 1) {
 			       sprintf($sources_format,
 				       substr($source_roots{$source}, 0, 14),
 				       substr($speeds{$source}, 0, 11),
-				       substr($progress_ratios{$source},
+				       substr($progress_ratio,
 					      -9, 9),
 				       substr($current_destination, -13, 13)));
                     ++ $line_number;
