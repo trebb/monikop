@@ -20,7 +20,7 @@ my @pokinom_banner = (
 #         <3> = bug fix,
 #         <2> = new feature,
 #         <1> = incompatible change.
-my $version = 'v0.1.0';
+my $version = 'v0.1.1';
 
 # Debug mode:
 # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)

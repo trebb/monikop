@@ -1,4 +1,5 @@
 *.html
+doc-tmp/
 monikop.config
 pokinom.config
 *~

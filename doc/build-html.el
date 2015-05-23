@@ -1,8 +1,6 @@
-#! /usr/bin/emacs --script
-
 ;;;; Make html files from .muse files in current dir, put them into ../html/
 
-(color-theme-whateveryouwant)
+;; (color-theme-whateveryouwant)
 (require 'muse-mode)
 (require 'muse-html)
 (require 'muse-project)

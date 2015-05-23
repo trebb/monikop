@@ -5,22 +5,14 @@
 
 * Download
 
-** Latest Release (tar.gz)
+** Latest Release (_PUT_VERSION_HERE_)
 
 Check out the [[news][Release Notes]].
 
-[[http://ohloh.net/p/monikop/download?package=Monikop&release=latest][Download monikop.tar.gz]]
-(via [[http://ohloh.net/p/monikop][Ohloh]]).
+[[https://github.com/trebb/monikop/archive/_PUT_VERSION_HERE_.tar.gz][Download tarball _PUT_VERSION_HERE_]]
 
 ** Development Version (Git Repository)
 
-=$ git clone git://git.berlios.de/monikop=
+$ git clone https://github.com/trebb/monikop.git
 
-or
-
-=$ git-clone git://repo.or.cz/monikop.git=
-
-or
-
-=$ git-clone http://repo.or.cz/r/monikop.git=
-
+[[https://github.com/trebb/monikop][GitHub]]

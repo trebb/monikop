@@ -1,2 +1,2 @@
 #disable-tables t
-<literal>&copy;</literal>  2010 | [[mailto:trebbu@googlemail.com?subject=MONIKOP ][Bert Burgemeister]]
+<literal>&copy;</literal>  2010, 2015 | [[mailto:trebbu@googlemail.com?subject=MONIKOP ][Bert Burgemeister]]
