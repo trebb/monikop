@@ -20,11 +20,12 @@ my @pokinom_banner = (
 #         <3> = bug fix,
 #         <2> = new feature,
 #         <1> = incompatible change.
-my $version = 'v0.1.1';
+my $version = 'v0.1.2';
 
 # Debug mode:
 # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file)
 my $debug = 0;
+$debug = $ARGV[1] if $ARGV[1];
 
 # Where to read local configuration:
 my $pokinom_config = '~/monikop/pokinom.config';
@@ -82,7 +83,7 @@ my %speeds :shared;
 my %progress_ratios :shared;
 my %done :shared;
 
-sub debug_print { if ($debug) { print @_; } };
+sub debug_print { if ($debug) { print "\n"; print @_; } };
 
 # Return sorted intersection of arrays which are supposed to have unique
 # elements.
@@ -220,18 +221,20 @@ while (1) {
     last if $? == 0;
 }
 
-
 my %rsync_exec_form;
+my $kludge;			# Don't ask
 
 # Set up and start things per source_root, in parallel:
 map {
     $progress_ratios{$_} = "?"; # Initialize for UI
     $done{$_} = 0;
+
+    debug_print 'rsync_preparation_form:' . rsync_preparation_form ($_). "\n";
+    eval rsync_preparation_form $_;
+    debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
+
     $rsync_worker_thread{$_} = async {
 	my $rsync_log_name = $rsync_log_prefix . $_;
-	debug_print 'rsync_preparation_form:' . rsync_preparation_form ($_). "\n";
-	eval rsync_preparation_form $_;
-	debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
 	my $complete_source =
             $source_roots{$_} . '/' . $path_under_mount_point;
 	my $complete_source_backed_up =
@@ -243,13 +246,15 @@ map {
 	write_list $interrupted_prefix . $_, @interrupted;
 	debug_print "INTERRUPTED";
 	debug_print @interrupted;
+	$kludge = $rsync{$_};
+	$kludge = $rsync_outfun{$_};
 	if (-d $complete_source) {
 	    if (eval ($rsync_exec_form{$_}() )) {
-		debug_print "EVAL RSYNC_EXEC_FORM (successful) $complete_source: $@ \n";
+		debug_print "EVAL RSYNC_EXEC_FORM in thread (successful) $complete_source: $@ \n";
 	    } else {
                 $display_thread->kill('TERM')->join if $display_thread;
                 # TODO: in case of overfull destination, warn nicer 
-		warn "EVAL RSYNC_EXEC_FORM (failed) $complete_source: $@ \n";
+		warn "EVAL RSYNC_EXEC_FORM in thread (failed) $complete_source: $@ \n";
                 threads->exit();
 	    }
 	}
@@ -283,12 +288,12 @@ my $rsync_worker_thread = async {
 	write_list $interrupted_prefix . $_, @interrupted;
 	if (-d $complete_source) {
 	    if (eval ($rsync_exec_form{$_}() )) {
-		debug_print "EVAL RSYNC_EXEC_FORM (successful) $complete_source: $@ \n";
+		debug_print "EVAL RSYNC_EXEC_FORM sequential (successful) $complete_source: $@ \n";
 		qx(mv $complete_source $complete_source_backed_up);
 	    } else {
                 $display_thread->kill('TERM')->join if $display_thread;
                 # TODO: in case of overfull destination, warn nicer 
-		warn "EVAL RSYNC_EXEC_FORM (failed) $complete_source: $@ \n";
+		warn "EVAL RSYNC_EXEC_FORM sequential (failed) $complete_source: $@ \n";
                 threads->exit();
 	    }
 	}

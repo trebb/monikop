@@ -21,7 +21,7 @@ my @monikop_banner = (
 #         <3> = bug fix,
 #         <2> = new feature,
 #         <1> = incompatible change.
-my $version = 'v0.1.1';
+my $version = 'v0.1.2';
 
 # Debug mode:
 # 0 = clean UI; 1 = lots of scrolling junk; anything else = both (pipe to file).
@@ -74,10 +74,10 @@ my $key_f3_action;
 # What to do (reboot) when F6 has been pressed:
 my $key_f6_action;
 
-# Rsyncs time (in seconds) to wait for a response:
+# Rsync's time (in seconds) to wait for a response:
 my $rsync_timeout;
 
-# Rsyncs directory (relative to destination) for partially transferred files.
+# Rsync's directory (relative to destination) for partially transferred files.
 # Must agree with Pokinom's setting.
 my $rsync_partial_dir_name;
 
@@ -96,7 +96,9 @@ my %destination_usage_ratios :shared;
 my %destination_source_is_writing_to :shared;
 my %reachable :shared;
 
-sub debug_print { if ($debug) { print @_; } };
+my $kludge;			# Don't ask
+
+sub debug_print { if ($debug) { print "\n"; print  @_; } };
 
 # Return the hash referenced by argument, which is sorted if accessed as an
 # array:
@@ -261,6 +263,7 @@ sub rsync_preparation_form {
 	   '        {',
 	   '            src => \\\'', $source_roots{$source}, '/\\\', ',
 	   '            literal => [ \\\'--recursive\\\', ',
+	   '                         \\\'--no-human-readable\\\', ',
 	   '                         \\\'--timeout=', $rsync_timeout, '\\\'] ',
 	   '        }',
 	   '    );\' ',
@@ -283,7 +286,8 @@ sub act_on_keypress {
 sub rsync_someplace {
     my ($source, @destinations) = @_;
     my $success;
-
+    $kludge = $rsync{$source};
+    $kludge = $rsync_outfun{$source};
     my $rsync_log_name = $rsync_log_prefix . $source;
     my $finished_name = $finished_prefix . $source;
     foreach (@destinations) {
@@ -351,15 +355,18 @@ if (scalar @destination_roots) {
 	# rotate for crude load balancing:
 	push (@destination_roots, shift (@destination_roots)); 
 	$progress_ratios{$_} = "?"; # Initialize for UI
+
+	debug_print 'rsync_preparation_form:' .
+	    rsync_preparation_form ($_). "\n";
+	eval rsync_preparation_form $_;
+	debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
+
 	$rsync_worker_thread{$_} = async {
 	    $SIG{TERM} = sub { threads->exit() };
             my $rsync_log_name = $rsync_log_prefix . $_;
             my $finished_name = $finished_prefix . $_;
-            debug_print 'rsync_preparation_form:' .
-                rsync_preparation_form ($_). "\n";
-            eval rsync_preparation_form $_;
-            debug_print "EVAL RSYNC_PREPARATION_FORM $_: $@ \n";
 	    while (1) {
+		$kludge = $rsync_dir{$_};
 		debug_print 'rsync_dir_exec_form $_:'.
                     $rsync_dir_exec_form{$_} () . "\n";
 		my @rsync_ls = eval $rsync_dir_exec_form{$_}();

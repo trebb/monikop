@@ -43,6 +43,7 @@ function make_test_drive {
         echo
         return 1
     fi
+    chmod a+w $MNT/$1
 }
 
 # make_test_file <name> <size> <date>
@@ -128,12 +129,12 @@ rm -rf $DEV $MNT $LOG
 mkdir -p $DEV $MNT $RSYNC
 
 for i in 01 02 03 04; do
-    make_test_drive $i 102400
+    make_test_drive $i 1024000
     if [[ $? == 1 ]]; then
         MOUNTING_PROBLEM=1
     fi
 done
-make_test_drive 05 307200
+make_test_drive 05 3072000
 if [[ $? == 1 ]]; then
     MOUNTING_PROBLEM=1
 fi
@@ -141,18 +142,18 @@ if [[ $MOUNTING_PROBLEM == 1 ]]; then exit; fi
 
 function fill_sources_with_big_files {
     for i in f1 f2 f3; do
-        make_test_file $MNT/01/data/$i 25000 200703250845.33
+        make_test_file $MNT/01/data/$i 250000 200703250845.33
     done
     for i in f10 f11 f12; do
-        make_test_file $MNT/02/data/$i 25000 200703250845.33
+        make_test_file $MNT/02/data/$i 250000 200703250845.33
     done
     for i in f4 f5 f6; do
-        make_test_file $MNT/01/data/d1/$i 2000 200703250845.33
-        make_test_file $MNT/01/data/d1/d2/$i 2000 200703250845.33
+        make_test_file $MNT/01/data/d1/$i 20000 200703250845.33
+        make_test_file $MNT/01/data/d1/d2/$i 20000 200703250845.33
     done
     for i in f7 f8 f9; do
-        make_test_file $MNT/02/data/d1/$i 2000 200703250845.33
-        make_test_file $MNT/02/data/d1/d2/$i 2000 200703250845.33
+        make_test_file $MNT/02/data/d1/$i 20000 200703250845.33
+        make_test_file $MNT/02/data/d1/d2/$i 20000 200703250845.33
     done
 }
 
@@ -201,7 +202,8 @@ function test_monikop_simple {
 
 function test_monikop_simple_late_sources {
     kill_rsyncd
-    $MONIKOP_1 & sleep $INTERRUPTION_TIME_2; start_rsyncd; sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
+    $MONIKOP_1 & sleep $INTERRUPTION_TIME_2; 
+    start_rsyncd; sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
     sleep 2
     find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4}/measuring_data
 }
@@ -252,7 +254,7 @@ function test_monikop_simple_3 {
 
 function test_monikop_overflow {
 # Stuff one of the destinations a bit:
-    make_test_file $MNT/03/stuffing 25000 199903250845
+    make_test_file $MNT/03/stuffing 250000 199903250845
     $MONIKOP_1 & sleep $INTERRUPTION_TIME_0; /bin/kill -TERM $!
     sleep 2
     find_and_compare $MNT/0{1,2}/data :: $MNT/0{3,4}/measuring_data
@@ -350,7 +352,7 @@ start_rsyncd
 #########################
 
 fill_sources_with_big_files
-
+ 
 run_test 1 test_monikop_deletes_being_deleted_dir "Monikop deletes left-over directory named being_deleted."
 
 rm -rf $MNT/0{3,4}/* $LOG
@@ -358,7 +360,7 @@ rm -rf $MNT/0{3,4}/* $LOG
 chmod a-w,a-x $MNT/0{3,4}
 run_test 1 test_monikop_simple "Unwritable destination"
 chmod a+w,a+x $MNT/0{3,4}
-run_test 0 test_monikop_simple "Unwritable destination"
+run_test 0 test_monikop_simple "No-longer-unwritable destination"
 
 rm -rf $MNT/0{3,4}/* $LOG
 
@@ -389,18 +391,18 @@ run_test 0 test_monikop_simple "Recovery after interruption, finished.* and/or l
 
 rm -rf $MNT/0{3,4}/* $LOG
 
-run_test 1 test_monikop_short_2 "Repeated interruption."
-run_test ignore test_monikop_short_2 "Repeated interruption (No test, side effect only)."
-run_test 0 test_monikop_simple_2 "Repeated interruption."
+run_test 1 test_monikop_short_2 "Repeated interruption (1)."
+run_test ignore test_monikop_short_2 "Repeated interruption (2) (No test, side effect only)."
+run_test 0 test_monikop_simple_2 "Repeated interruption (3)."
 
 mv $MNT/03/measuring_data $MNT/03/backed_up
 mv $MNT/04/measuring_data $MNT/04/backed_up
 mv $MNT/05/measuring_data $MNT/05/backed_up
 rm -rf $LOG
 
-run_test 1 test_monikop_short_2 "Repeated interruption, deletion."
-run_test ignore test_monikop_short_2 "Repeated interruption, deletion (No test, side offect only)."
-run_test 0 test_monikop_simple_2 "Repeated interruption, deletion."
+run_test 1 test_monikop_short_2 "Repeated interruption, deletion (1)."
+run_test ignore test_monikop_short_2 "Repeated interruption, deletion (2) (No test, side effect only)."
+run_test 0 test_monikop_simple_2 "Repeated interruption, deletion (3)."
 
 rm -rf $MNT/0{3,4,5}/* $LOG
 
@@ -438,9 +440,9 @@ run_test 1 test_monikop_short "Don't re-rsync after deletion of finished.*.bak."
 
 rm -rf $MNT/0{3,4}/* $LOG
 
-##############################
+##################################################
 # Run tests: Pokinom
-##############################
+##################################################
 
 run_test 1 test_pokinom_deletes_being_deleted_dir "Pokinom deletes left-over directory named being_deleted."
 
@@ -474,7 +476,7 @@ rm -rf $MNT/05/* $LOG
 
 run_test 0 test_monikop_simple "Preparation for Pokinom's destination overfull."
 # Stuff destination:
-make_test_file $MNT/05/stuffing 200000 199903250845
+make_test_file $MNT/05/stuffing 2000000 199903250845
 run_test 1 test_pokinom_clean_finish "Pokinom's destination overfull."
 rm $MNT/05/stuffing
 run_test 0 test_pokinom_clean_finish "Pokinom's destination no longer overfull: recovering."
@@ -496,17 +498,17 @@ rm -rf $MNT/05/* $LOG
 run_test 0 test_monikop_simple "Simple run in preparation for \"file grown too large\""
 rm $MNT/01/data/f3
 cat $MNT/01/data/f1 >> $MNT/01/data/f2
-run_test 2 test_monikop_simple "Repeated run, file grown too large."
-run_test 2 test_pokinom_clean_finish "Repeated run, file grown too large."
-run_test 1 test_monikop_simple "Repeated run, file grown too large."
-run_test 0 test_pokinom_clean_finish "Repeated run, file grown too large."
+run_test 2 test_monikop_simple "Repeated run, file grown too large (1)."
+run_test 2 test_pokinom_clean_finish "Repeated run, file grown too large (2)."
+run_test 1 test_monikop_simple "Repeated run, file grown too large (3)."
+run_test 0 test_pokinom_clean_finish "Repeated run, file grown too large (4)."
 
 rm -rf $MNT/05/* $LOG
 
-run_test 1 test_monikop_overflow "Initially, too little room on disks."
-run_test 1 test_pokinom_clean_finish "Initially, too little room on disks."
-run_test 1 test_monikop_overflow "Previously, too little room on disks."
-run_test 0 test_pokinom_clean_finish "Previously, too little room on disks."
+run_test 1 test_monikop_overflow "Initially, too little room on disks (1)."
+run_test 1 test_pokinom_clean_finish "Initially, too little room on disks (2)."
+run_test 1 test_monikop_overflow "Previously, too little room on disks (1)."
+run_test 0 test_pokinom_clean_finish "Previously, too little room on disks (2)."
 
 rm -rf $MNT/0{3,4,5}/* $LOG
 
@@ -535,8 +537,8 @@ mv $MNT/01/data/f5 "$MNT/01/data/\`backquotes\`"
 mv $MNT/01/data/f6 "$MNT/01/data/'single quotes'"
 mv $MNT/01/data/f7 "$MNT/01/data/\"double quotes\""
 mv $MNT/01/data/f8 "$MNT/01/data/b\\a\\ckslashes"
-mv $MNT/01/data/f9 "`echo -e "$MNT/01/data/newlines\nin\nname"`";
 ## Won't work:
+#mv $MNT/01/data/f9 "`echo -e "$MNT/01/data/newlines\nin\nname"`";
 #mv $MNT/01/data/d2 $MNT/01/data/.rsync_partial
 #mv $MNT/01/data/d3/d4 $MNT/01/data/d3/.rsync_partial
 run_test 0 test_monikop_simple "Weird file names."
