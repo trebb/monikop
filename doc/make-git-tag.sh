@@ -1,6 +1,6 @@
 #! /bin/bash
 
-# Make a new git tag and upload a new release.
+# Make a new git tag
 ######################################################################
 # The tag's name (a version string like `v1.2.3') and the commit
 # message come from the topmost entry of ../NEWS.  Headlines of those
@@ -37,9 +37,9 @@ function program_version_number {
 
 echo "Tagging `latest_version_number`"
 
-if [[ -n `git-diff` ]]; then
+if [[ -n `git diff` ]]; then
     echo "We have uncommitted changes."
-    git-status
+    git status
     echo "Aborting."
     exit
 fi;
@@ -52,51 +52,15 @@ elif [[ `program_version_number ../pokinom` != `latest_version_number` ]]; then
     exit
 fi
 
-if ! git-tag -a -m "`latest_NEWS_section`" `latest_version_number`; then
+if ! git tag -a -m "`latest_NEWS_section`" `latest_version_number`; then
     echo "Setting tag `latest_version_number` failed. But maybe things are already in place."
 else
     echo "Tagging `latest_version_number` successful."
 fi
 
-if [[ `git-describe $(latest_version_number)` != `latest_version_number` ]]; then
+if [[ `git describe $(latest_version_number)` != `latest_version_number` ]]; then
     echo "Tag `latest_version_number` missing. Aborting."
     exit
 fi
-
-echo "Writing archive ../monikop-`naked_version_number`.tar.gz."
-if ! (
-        cd ..
-        git-archive \
-            --format=tar \
-            --prefix=monikop-`naked_version_number`/ `latest_version_number` | \
-            gzip > monikop-`naked_version_number`.tar.gz
-        )
-then
-    echo "Unsuccessful. Aborting."
-    exit
-fi
-
-echo "Writing instruct-ohloh-`naked_version_number`.xml."
-if ! cat > instruct-ohloh-`naked_version_number`.xml <<EOF
-<packages>
-  <package name="Monikop">
-    <releases>
-      <release name="`latest_version_number`">
-        <files>
-          <file name="monikop-`naked_version_number`.tar.gz"/>
-        </files>
-      </release>
-    </releases>
-  </package>
-</packages>
-EOF
-then
-    echo "Unsuccessful. Aborting."
-    exit
-fi
-
-echo "Uploading to upload.ohloh.net."
-scp ../monikop-`naked_version_number`.tar.gz trebb@upload.ohloh.net:monikop/files &&
-scp instruct-ohloh-`naked_version_number`.xml trebb@upload.ohloh.net:monikop/instructs
 
 exit

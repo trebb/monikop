@@ -1,3 +1,11 @@
+* v0.1.2 (2015-06-09)
+
+  - Bug fix
+
+  - Remove bit rot regarding rsync API.
+
+  - Adapt to systemd.
+
 * v0.1.1 (2015-05-23)
 
   - Move project from (defunct) Berlios to Github.
