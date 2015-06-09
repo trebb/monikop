@@ -184,6 +184,8 @@ If necessary, specify path to config file, e.g.
 
 *** Setup Sudo
 
+(Not necessary on a systemd-based system.)
+
 On both Monikop's and Pokinom's host authorise m-operator to shut down computer.
 Use =visudo= to change =/etc/sudoers=; add:
 
@@ -193,7 +195,7 @@ m-operator ALL=(ALL) NOPASSWD: /sbin/reboot
 </src>
 
 
-*** Automatic Login
+*** Automatic Login (under systemd)
 
 On both Monikop's and Pokinom's host, change the line in
 =/etc/inittab= that looks like
@@ -206,6 +208,18 @@ into
 
 <src lang="conf">
 1:2345:respawn:/sbin/mingetty --autologin m-operator --noclear tty1
+</src>
+
+*** Automatic Login (under systemd)
+
+On both Monikop's and Pokinom's host, create the file (and the
+containing directory) 
+/etc/systemd/system/getty@tty1.service.d/autologin.conf:
+
+<src lang="conf">
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin m-operator --noclear %I 38400 linux
 </src>
 
 
@@ -387,7 +401,7 @@ pid file = /var/run/rsyncd.pid
         list = no
         comment = Pokinom only; requires authentication
         read only = no
-        incoming chmod = g+r,g+w
+        incoming chmod = g+r,g+w,g+X
         write only = yes
         # Pokinom's IP:
         hosts allow = 192.168.180.120

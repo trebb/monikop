@@ -60,8 +60,13 @@ $shut_down_when_done =
     ;
 
 # What to do (shutdown) when F3 has been pressed:
-$shut_down_action =
-    "sudo halt -p"
+#$shut_down_action =
+#    "sudo halt -p"
+#    ;
+
+# What to do (shutdown) when F3 has been pressed (on a systemd-based system):
+$key_f3_action =
+    "systemctl poweroff"
     ;
 
 # Rsync's directory (relative to mount point of removable disk) for partially

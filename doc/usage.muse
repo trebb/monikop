@@ -18,7 +18,7 @@ data. Only Monikop's shutdown or the disappearance of the data Source
 will end this cycle.
 
 One removable disk is sufficient for Monikop's correct
-operation; but if speed is important, putting in as many disks as
+operation, but if speed is important, putting in as many disks as
 there are data Sources may be beneficial as Monikop uses them in parallel.
 
 To end a session, press [F3] to shut down Monikop, and remove the
