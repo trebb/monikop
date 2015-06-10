@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Monikop (and Pokinom)</title>
+    <meta name="DC.Title" content="Monikop (and Pokinom)" />
+    <meta name="DC.Creator" content="Bert Burgemeister" />
+    <meta name="author" content="Bert Burgemeister" />
+    <meta name="generator" content="muse.el" />
+    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+    <style type="text/css">
+    /** Style sheet derived from PLAINANDSIMPLE, a free template from         */
+    /** http://www.freecsstemplates.org released under a Creative Commons     */
+    /** Attribution 2.5 License (http://creativecommons.org/licenses/by/2.5/) */
+ /** BASIC */
+      body, pre, code, a {
+      	margin: 0em;
+      	padding: 0em;
+      	font-family: "Courier New", Courier, monospace;
+      }
+      pre {
+        border-width: thin;
+        border-style: dotted;
+        border-color: #CCCCCC;
+      }
+      code {
+        border-bottom-width: thin;
+        border-bottom-style: dotted;
+        border-bottom-color: #CCCCCC;
+      }
+      h1, h2, h3, h4, h5, h6 {
+        margin: 0em;
+      	padding: 0em;
+      	margin-top: 1em;
+      }
+      div > p, div > ol, div > ul, div > pre, td, th, dl {
+      	font-size: .8em;
+      }
+      ul {
+      	list-style-type: circle;
+      }
+      table {
+        border-collapse: collapse;
+      }
+      a {
+      	color: #000000;
+      }
+      a:hover {
+      	text-decoration: none;
+      	background-color: #000000;
+      	color: #FFFFFF;
+      }
+ /** HEADER */
+      #header {
+      	margin: 0em; 
+      	padding: 0em 1em;
+      	background-color: #A8A8A8;
+      }
+      #header h1 {
+      	margin: 0em;
+      	padding: 0em;
+      	color: #FFFFFF;
+      }
+      #header h2 {
+      	margin: 0em;
+      	padding: 0em;
+      	font-size: 1em;
+      	color: #FFFFFF;
+      }
+ /** SIDEBAR */
+      #sidebar {
+      	float: left;
+      	width: 15%;
+        margin: 1em 0em 0em 0em;
+      	padding: 1em;
+      }
+      #sidebar > ul {
+      	margin: 0em;
+      	padding: 0em;
+      	list-style: none;
+      	text-align: center;
+        font-weight: bold;
+      }
+      #sidebar * ul {
+      	margin: .5em 0em 0em 0em;
+      	padding: 0em;
+        list-style: none;
+        font-weight: normal;
+      }
+      #sidebar > ul > li {
+        padding: 1em 0em;
+      }
+      #sidebar > ul > li li {
+        padding: .3em 0em;
+      }
+ /** CONTENT */
+      #content {
+      	float: left;
+      	width: 70%;
+      }
+ /** FOOTER */
+      #footer {
+      	clear: both;
+      	padding: 0px 1em 1px 1em;
+      	font-weight: bold;
+      	color: #FFFFFF;
+      	background-color: #A8A8A8;
+      }
+      #footer-right {
+        float: right;
+        font-weight: normal;
+      }
+      #footer p {
+      	margin: 0em;
+      	padding: 0em;
+      }
+      #footer a {
+      	color: #FFFFFF;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="header">
+      <h1>Monikop (and Pokinom)</h1>
+      <h2>rsync between unconnected hosts</h2>	
+    </div><!-- end header -->
+    <div id="sidebar">
+     
+      <ul>
+<li><a href="index.html">Introduction</a></li>
+<li><a href="installation.html">Installation</a>
+
+<ul>
+<li><a href="installation.html#Prepare_Removable_Disks">Prepare Removable Disks</a></li>
+<li><a href="installation.html#Configure_Monikop_and_Pokinom">Configure Monikop and Pokinom</a></li>
+<li><a href="installation.html#Configure_Rsync_on_Sources">Configure Rsync on Sources</a></li>
+<li><a href="installation.html#Network_Setup">Network Setup</a></li>
+<li><a href="installation.html#Data_Destination">Data Destination</a></li>
+</ul></li>
+<li><a href="usage.html">Usage</a></li>
+<li><a href="license.html">License</a></li>
+<li><a href="screenshots.html">Screenshots</a></li>
+<li><a href="download.html">Download</a></li>
+<li><a href="news.html">Release Notes</a></li>
+</ul>
+
+    </div><!-- end sidebar -->
+    <div id="content">
+<!-- Page published by Emacs Muse begins here -->
+<h2>Introduction</h2>
+
+<p class="first">Suppose you have an isolated network of data producing computers
+(Sources), e.g. in a surveying vehicle (Rover). The collected data (a
+few terabytes per day) need to be transferred to a processing server
+(Destination) in office.</p>
+
+<p>This data transfer, which happens by means of removable disks, is
+Monikop's and Pokinom's job.</p>
+
+<p>On Rover, a couple of removable disks are put into a dedicated
+computer where they are filled automatically by Monikop with data
+pulled from Sources.  At any time, copying data finished or otherwise,
+the operator switches Monikop's host off by a keypress and removes the
+disks. Data integrity is never compromised by shutting down Monikop's
+host or any of the Sources at any time, in any order, by any means
+including power cuts.</p>
+
+<p>The disks are then brought to the office where they are put into
+another dedicated computer. Here, Monikop's counterpart called Pokinom
+pushes their content to Destination, makes the disks re-usable by
+Monikop, and switches itself off when finished.</p>
+
+<p>Old data is being left as long as possible on the removable
+disks. This may be helpful as part of a backup strategy.</p>
+
+<p>The heavy lifting is done by <a href="http://www.samba.org/rsync/">Rsync</a>. Sources as well as Destination
+need to have Rsync installed. Both can be running Linux, Windows, or
+any operating system Rsync can be installed on.</p>
+
+<p>You can expect transfer rates of about</p>
+
+<ul>
+<li>30 megabytes per second per Source running Windows,</li>
+<li>50 megabytes per second per Source running Linux.</li>
+</ul>
+
+
+<!-- Page published by Emacs Muse ends here -->
+    </div><!-- end content -->
+    <div id="footer">
+      <div id="footer-right">
+        <p><a href="http://validator.w3.org/check?uri=referer">XHTML 1.1</a></p>
+
+      </div>
+      <p>&copy;  2010, 2015 | <a href="mailto:trebbu@googlemail.com?subject=MONIKOP%20">Bert Burgemeister</a></p>
+
+    </div><!-- end footer -->
+  </body>
+</html>

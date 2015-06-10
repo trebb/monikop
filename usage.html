@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Monikop (and Pokinom)</title>
+    <meta name="DC.Title" content="Monikop (and Pokinom)" />
+    <meta name="DC.Creator" content="Bert Burgemeister" />
+    <meta name="author" content="Bert Burgemeister" />
+    <meta name="generator" content="muse.el" />
+    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+    <style type="text/css">
+    /** Style sheet derived from PLAINANDSIMPLE, a free template from         */
+    /** http://www.freecsstemplates.org released under a Creative Commons     */
+    /** Attribution 2.5 License (http://creativecommons.org/licenses/by/2.5/) */
+ /** BASIC */
+      body, pre, code, a {
+      	margin: 0em;
+      	padding: 0em;
+      	font-family: "Courier New", Courier, monospace;
+      }
+      pre {
+        border-width: thin;
+        border-style: dotted;
+        border-color: #CCCCCC;
+      }
+      code {
+        border-bottom-width: thin;
+        border-bottom-style: dotted;
+        border-bottom-color: #CCCCCC;
+      }
+      h1, h2, h3, h4, h5, h6 {
+        margin: 0em;
+      	padding: 0em;
+      	margin-top: 1em;
+      }
+      div > p, div > ol, div > ul, div > pre, td, th, dl {
+      	font-size: .8em;
+      }
+      ul {
+      	list-style-type: circle;
+      }
+      table {
+        border-collapse: collapse;
+      }
+      a {
+      	color: #000000;
+      }
+      a:hover {
+      	text-decoration: none;
+      	background-color: #000000;
+      	color: #FFFFFF;
+      }
+ /** HEADER */
+      #header {
+      	margin: 0em; 
+      	padding: 0em 1em;
+      	background-color: #A8A8A8;
+      }
+      #header h1 {
+      	margin: 0em;
+      	padding: 0em;
+      	color: #FFFFFF;
+      }
+      #header h2 {
+      	margin: 0em;
+      	padding: 0em;
+      	font-size: 1em;
+      	color: #FFFFFF;
+      }
+ /** SIDEBAR */
+      #sidebar {
+      	float: left;
+      	width: 15%;
+        margin: 1em 0em 0em 0em;
+      	padding: 1em;
+      }
+      #sidebar > ul {
+      	margin: 0em;
+      	padding: 0em;
+      	list-style: none;
+      	text-align: center;
+        font-weight: bold;
+      }
+      #sidebar * ul {
+      	margin: .5em 0em 0em 0em;
+      	padding: 0em;
+        list-style: none;
+        font-weight: normal;
+      }
+      #sidebar > ul > li {
+        padding: 1em 0em;
+      }
+      #sidebar > ul > li li {
+        padding: .3em 0em;
+      }
+ /** CONTENT */
+      #content {
+      	float: left;
+      	width: 70%;
+      }
+ /** FOOTER */
+      #footer {
+      	clear: both;
+      	padding: 0px 1em 1px 1em;
+      	font-weight: bold;
+      	color: #FFFFFF;
+      	background-color: #A8A8A8;
+      }
+      #footer-right {
+        float: right;
+        font-weight: normal;
+      }
+      #footer p {
+      	margin: 0em;
+      	padding: 0em;
+      }
+      #footer a {
+      	color: #FFFFFF;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="header">
+      <h1>Monikop (and Pokinom)</h1>
+      <h2>rsync between unconnected hosts</h2>	
+    </div><!-- end header -->
+    <div id="sidebar">
+     
+      <ul>
+<li><a href="index.html">Introduction</a></li>
+<li><a href="installation.html">Installation</a>
+
+<ul>
+<li><a href="installation.html#Prepare_Removable_Disks">Prepare Removable Disks</a></li>
+<li><a href="installation.html#Configure_Monikop_and_Pokinom">Configure Monikop and Pokinom</a></li>
+<li><a href="installation.html#Configure_Rsync_on_Sources">Configure Rsync on Sources</a></li>
+<li><a href="installation.html#Network_Setup">Network Setup</a></li>
+<li><a href="installation.html#Data_Destination">Data Destination</a></li>
+</ul></li>
+<li><a href="usage.html">Usage</a></li>
+<li><a href="license.html">License</a></li>
+<li><a href="screenshots.html">Screenshots</a></li>
+<li><a href="download.html">Download</a></li>
+<li><a href="news.html">Release Notes</a></li>
+</ul>
+
+    </div><!-- end sidebar -->
+    <div id="content">
+<!-- Page published by Emacs Muse begins here -->
+<h2>Usage</h2>
+
+<p class="first">Both Monikop and Pokinom will create automatically any directories they need.</p>
+
+<h3>Monikop</h3>
+
+<p class="first">Put removable disks into Monikop's host on Rover and switch it on. Immediately,
+Monikop starts pulling data from Sources it can reach. Monikop will
+notice additional Sources that become reachable later and will start
+pulling data there as well.</p>
+
+<p>For each Source, Monikop keeps starting over to see if there is new
+data. Only Monikop's shutdown or the disappearance of the data Source
+will end this cycle.</p>
+
+<p>One removable disk is sufficient for Monikop's correct
+operation, but if speed is important, putting in as many disks as
+there are data Sources may be beneficial as Monikop uses them in parallel.</p>
+
+<p>To end a session, press [F3] to shut down Monikop, and remove the
+disks. Monikop's display shows which disks are not yet used so you
+can avoid carrying empty disks around.</p>
+
+
+
+
+<h3>Pokinom</h3>
+
+<p class="first">Put removable disks into Pokinom's host in office and switch it
+on. Immediately, Pokinom starts pushing data to Destination.
+Interrupting this by shutting down Pokinom early is not a problem as
+long as it is later given the opportunity to finish. Otherwise files,
+even those already copied to
+Destination, won't be deleted by Monikop from their removable disks
+during the next cycle.</p>
+
+<p>Press [F9] to toggle whether or not you want Pokinom to shut down
+when finished.</p>
+
+<p>File permissions in Destination's receiving directory must not be
+changed in a way that prevents the rsync server from modifying.
+Best practice is to move anything out of this directory prior to any
+processing.</p>
+
+<p>Pokinom needs a sufficient amount of free disk space on Destination; it
+must be rebooted once this temporarily hasn't been the case.</p>
+
+
+
+
+
+
+
+
+
+
+
+<h3>Crash Recovery</h3>
+
+<p class="first">Removable disks may get lost before they reach Destination, or
+Destination may crash shortly after receiving fresh data. The
+following may help in these cases.</p>
+
+<h4>Data Recovery from Source(s) on Rover</h4>
+
+<p class="first">On Monikop's host, stop Monikop and delete the log files whose
+directory and name prefix is set in <a href="installation.html#monikop.config">monikop.config</a> by
+<code>$rsync_log_prefix</code> and <code>$finished_prefix</code>, and whose names resemble the
+Source they belong to.</p>
+
+<p>On next startup, Monikop will pull all data from this Source again.</p>
+
+
+<h4>Data Loss on Destination: Recovery from Removable Disks</h4>
+
+<p class="first">Data on removable disks are deleted not until the disk is
+finished by Pokinom and re-inserted in
+Monikop. (Non-)deletability is expressed by directory names defined
+in both <a href="installation.html#monikop.config">monikop.config</a> and
+<a href="installation.html#pokinom.config">pokinom.config</a>:</p>
+
+<ul>
+<li><code>$path_under_mount_point</code> sets the name of a directory fresh data
+reside in on each removable disk. Once finished by Pokinom, it
+is renamed into the name set by</li>
+<li><code>$path_under_mount_point_backed_up</code>. You can simply rename it
+back and Pokinom will push its content to Destination again.
+If you don't, Monikop will rename it into the name set by</li>
+<li><code>$path_under_mount_point_being_deleted</code> as soon as it sees it,
+and start deleting it while a new <code>$path_under_mount_point</code> is
+created and filled with fresh data.</li>
+</ul>
+
+
+<h4>Disk Failure</h4>
+
+<p class="first">Suppose the system reports disk error on (say) /dev/sdb1. What is it's
+label?</p>
+
+<pre class="example">
+ls -l /dev/disk/by-label
+</pre>
+
+<p>shows the mapping.</p>
+
+
+
+
+
+<h2>Bugs</h2>
+
+<ul>
+<li>Monikop and Pokinom allow files on Sources to change at any time
+and will reflect such changes in Destination. As a downside,
+Monikop and Pokinom are unable to tell whether a file is transferred
+completely. You should be able to assert completeness of your
+files by other means.</li>
+<li>Empty directories on Sources are being ignored.</li>
+<li>Any directories on Sources whose names conflict with the setting
+<code>$rsync_partial_dir_name</code> in <a href="installation.html#monikop">monikop.config</a> are being ignored.</li>
+<li>Deletions on Sources won't propagate to Destination.</li>
+<li>For user information on progress, both Monikop and Pokinom rely on
+Rsync's output which is not always reliable as to the total number
+of files.</li>
+<li>During copying, occasionally obsolete versions of a file may
+temporarily appear on Destination. This can happen with files that
+have grown bigger after having been copied already.</li>
+<li>Frequent power cuts (as opposed to normal shutdown operations) may
+compromise efficiency in terms of disk usage.</li>
+<li>By running multiple instances of Rsync, Monikop puts considerable
+strain on the system. This may reveal previously unnoticed
+hardware faults.</li>
+</ul>
+
+
+<!-- Page published by Emacs Muse ends here -->
+    </div><!-- end content -->
+    <div id="footer">
+      <div id="footer-right">
+        <p><a href="http://validator.w3.org/check?uri=referer">XHTML 1.1</a></p>
+
+      </div>
+      <p>&copy;  2010, 2015 | <a href="mailto:trebbu@googlemail.com?subject=MONIKOP%20">Bert Burgemeister</a></p>
+
+    </div><!-- end footer -->
+  </body>
+</html>

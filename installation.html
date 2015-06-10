@@ -1,0 +1,825 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Monikop (and Pokinom)</title>
+    <meta name="DC.Title" content="Monikop (and Pokinom)" />
+    <meta name="DC.Creator" content="Bert Burgemeister" />
+    <meta name="author" content="Bert Burgemeister" />
+    <meta name="generator" content="muse.el" />
+    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+    <style type="text/css">
+    /** Style sheet derived from PLAINANDSIMPLE, a free template from         */
+    /** http://www.freecsstemplates.org released under a Creative Commons     */
+    /** Attribution 2.5 License (http://creativecommons.org/licenses/by/2.5/) */
+ /** BASIC */
+      body, pre, code, a {
+      	margin: 0em;
+      	padding: 0em;
+      	font-family: "Courier New", Courier, monospace;
+      }
+      pre {
+        border-width: thin;
+        border-style: dotted;
+        border-color: #CCCCCC;
+      }
+      code {
+        border-bottom-width: thin;
+        border-bottom-style: dotted;
+        border-bottom-color: #CCCCCC;
+      }
+      h1, h2, h3, h4, h5, h6 {
+        margin: 0em;
+      	padding: 0em;
+      	margin-top: 1em;
+      }
+      div > p, div > ol, div > ul, div > pre, td, th, dl {
+      	font-size: .8em;
+      }
+      ul {
+      	list-style-type: circle;
+      }
+      table {
+        border-collapse: collapse;
+      }
+      a {
+      	color: #000000;
+      }
+      a:hover {
+      	text-decoration: none;
+      	background-color: #000000;
+      	color: #FFFFFF;
+      }
+ /** HEADER */
+      #header {
+      	margin: 0em; 
+      	padding: 0em 1em;
+      	background-color: #A8A8A8;
+      }
+      #header h1 {
+      	margin: 0em;
+      	padding: 0em;
+      	color: #FFFFFF;
+      }
+      #header h2 {
+      	margin: 0em;
+      	padding: 0em;
+      	font-size: 1em;
+      	color: #FFFFFF;
+      }
+ /** SIDEBAR */
+      #sidebar {
+      	float: left;
+      	width: 15%;
+        margin: 1em 0em 0em 0em;
+      	padding: 1em;
+      }
+      #sidebar > ul {
+      	margin: 0em;
+      	padding: 0em;
+      	list-style: none;
+      	text-align: center;
+        font-weight: bold;
+      }
+      #sidebar * ul {
+      	margin: .5em 0em 0em 0em;
+      	padding: 0em;
+        list-style: none;
+        font-weight: normal;
+      }
+      #sidebar > ul > li {
+        padding: 1em 0em;
+      }
+      #sidebar > ul > li li {
+        padding: .3em 0em;
+      }
+ /** CONTENT */
+      #content {
+      	float: left;
+      	width: 70%;
+      }
+ /** FOOTER */
+      #footer {
+      	clear: both;
+      	padding: 0px 1em 1px 1em;
+      	font-weight: bold;
+      	color: #FFFFFF;
+      	background-color: #A8A8A8;
+      }
+      #footer-right {
+        float: right;
+        font-weight: normal;
+      }
+      #footer p {
+      	margin: 0em;
+      	padding: 0em;
+      }
+      #footer a {
+      	color: #FFFFFF;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="header">
+      <h1>Monikop (and Pokinom)</h1>
+      <h2>rsync between unconnected hosts</h2>	
+    </div><!-- end header -->
+    <div id="sidebar">
+     
+      <ul>
+<li><a href="index.html">Introduction</a></li>
+<li><a href="installation.html">Installation</a>
+
+<ul>
+<li><a href="installation.html#Prepare_Removable_Disks">Prepare Removable Disks</a></li>
+<li><a href="installation.html#Configure_Monikop_and_Pokinom">Configure Monikop and Pokinom</a></li>
+<li><a href="installation.html#Configure_Rsync_on_Sources">Configure Rsync on Sources</a></li>
+<li><a href="installation.html#Network_Setup">Network Setup</a></li>
+<li><a href="installation.html#Data_Destination">Data Destination</a></li>
+</ul></li>
+<li><a href="usage.html">Usage</a></li>
+<li><a href="license.html">License</a></li>
+<li><a href="screenshots.html">Screenshots</a></li>
+<li><a href="download.html">Download</a></li>
+<li><a href="news.html">Release Notes</a></li>
+</ul>
+
+    </div><!-- end sidebar -->
+    <div id="content">
+<!-- Page published by Emacs Muse begins here -->
+<h2>Installation</h2>
+
+<p class="first">We assume Debian GNU/Linux here, but any distribution should
+work. Adapt installation instructions accordingly.</p>
+
+<p>Debian Packages needed:</p>
+
+<ul>
+<li>to run Monikop (on Rover) or Pokinom (in office):
+rsync, mingetty, sudo, libcurses-perl, libfile-rsync-perl;</li>
+
+<li>to install from a git repository: git-core;</li>
+
+<li>to run the tests: bc, time.</li>
+
+<li>Both Monikop and Pokinom run on text console; you don't need
+anything like Gnome, KDE or even X.</li>
+</ul>
+
+
+<h3>Prepare Removable Disks</h3>
+
+<p class="first">Put sticker labels with disk names on your removable disks.</p>
+
+<h4>File Systems</h4>
+
+<p class="first">Create labelled file systems on the removable disks. Example
+(suppose a removable disk with a sticker label &quot;<code>disk_10</code>&quot; on its case is attached to <code>/dev/sdg1</code>):</p>
+
+<pre class="example">
+# mke2fs -j -L disk_10 /dev/sdg1
+</pre>
+
+<p>On both Monikop's and Pokinom's host, label the system root
+partition. If it were on <code>/dev/sda1/, that's e.g.</code>:</p>
+
+<pre class="example">
+# e2label /dev/sda1 root
+</pre>
+
+<p>On both Monikop's and Pokinom's host, label the swap partition. If it
+happens to be on /dev/sda5, e.g.:</p>
+
+<pre class="example">
+# swapoff
+
+# mkswap -L swap /dev/sda5
+
+# swapon
+</pre>
+
+
+<h4>Mount Points</h4>
+
+<p class="first">On both Monikop's and Pokinom's host, create mount points, one for
+each removable disk:</p>
+
+<pre class="example">
+# mkdir -p /media/disk_{01,02,03,04...}
+
+# chmod a+rx /media/disk_{01,02,03,04...}
+</pre>
+
+<p><a id="fstab"></a>
+In <code>/etc/fstab</code> on both Monikop's and Pokinom's host, make use of the disk labels:</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">## </span><span style="font-weight: bold; font-style: italic;">System partitions ###
+</span><span style="font-weight: bold; font-style: italic;">LABEL</span>=root     /               ext3  defaults,errors=remount-ro 0  1
+<span style="font-weight: bold; font-style: italic;">LABEL</span>=swap     none            swap  sw                         0  0
+<span style="font-weight: bold; font-style: italic;">## </span><span style="font-weight: bold; font-style: italic;">Removable disks
+</span><span style="font-weight: bold; font-style: italic;">LABEL</span>=disk_01  /media/disk_01  ext3  rw,user,auto               0  0
+<span style="font-weight: bold; font-style: italic;">LABEL</span>=disk_02  /media/disk_02  ext3  rw,user,auto               0  0
+<span style="font-weight: bold; font-style: italic;">LABEL</span>=disk_03  /media/disk_03  ext3  rw,user,auto               0  0
+<span style="font-weight: bold; font-style: italic;">LABEL</span>=disk_04  /media/disk_04  ext3  rw,user,auto               0  0
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">etc.
+</span></pre>
+
+<p>Put each removable disk in and make it writable; e.g.:</p>
+
+<pre class="example">
+# mount /media/disk_01
+
+# chmod a+rwx /media/disk_01
+</pre>
+
+
+<h4>Maintain Bootability</h4>
+
+<p class="first">On both Monikop's and Pokinom's host, make sure the operating system boots
+actually from its system disk rather than from some of the removable
+ones. Change <code>/boot/grub/menu.lst</code> where it says <code># kopt=root=...</code>:</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">### </span><span style="font-weight: bold; font-style: italic;">BEGIN AUTOMAGIC KERNELS LIST
+</span><span style="font-weight: bold; font-style: italic;">## </span><span style="font-weight: bold; font-style: italic;">lines between the AUTOMAGIC KERNELS LIST markers will be modified
+</span><span style="font-weight: bold; font-style: italic;">## </span><span style="font-weight: bold; font-style: italic;">by the debian update-grub script except for the default options below
+</span>
+<span style="font-weight: bold; font-style: italic;">## </span><span style="font-weight: bold; font-style: italic;">DO NOT UNCOMMENT THEM, Just edit them to your needs
+</span>
+<span style="font-weight: bold; font-style: italic;">## </span><span style="font-weight: bold; font-style: italic;">## Start Default Options ##
+</span><span style="font-weight: bold; font-style: italic;">## </span><span style="font-weight: bold; font-style: italic;">default kernel options
+</span><span style="font-weight: bold; font-style: italic;">## </span><span style="font-weight: bold; font-style: italic;">default kernel options for automagic boot options
+</span><span style="font-weight: bold; font-style: italic;">## </span><span style="font-weight: bold; font-style: italic;">If you want special options for specific kernels use kopt_x_y_z
+</span><span style="font-weight: bold; font-style: italic;">## </span><span style="font-weight: bold; font-style: italic;">where x.y.z is kernel version. Minor versions can be omitted.
+</span><span style="font-weight: bold; font-style: italic;">## </span><span style="font-weight: bold; font-style: italic;">e.g. kopt=root=/dev/hda1 ro
+</span><span style="font-weight: bold; font-style: italic;">##      </span><span style="font-weight: bold; font-style: italic;">kopt_2_6_8=root=/dev/hdc1 ro
+</span><span style="font-weight: bold; font-style: italic;">##      </span><span style="font-weight: bold; font-style: italic;">kopt_2_6_8_2_686=root=/dev/hdc2 ro
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">kopt=root=/dev/disk/by-label/root noresume ro
+</span></pre>
+
+<p>and call</p>
+
+<pre class="example">
+# update-grub
+</pre>
+
+
+<h3><a id="Configure_Monikop_and_Pokinom"></a>Configure Monikop and Pokinom</h3>
+
+<p class="first">Create a user on both Monikop's and Pokinom's machine. For
+description's sake, we assume they're called m-operator.</p>
+
+<p>Inside m-operator's home directory, <a href="download.html">get Monikop (and Pokinom)</a>;
+unpack the tarball:</p>
+
+<pre class="example">
+$ tar -xzf monikop-&lt;version&gt;.tar.gz
+
+$ mv monikop-&lt;version&gt; monikop
+
+$ cd monikop
+</pre>
+
+<p>Copy <code>monikop.config.example</code> to <code>monikop.config</code> and
+<code>pokinom.config.example</code> to <code>pokinom.config, respectively,</code> and
+adapt them according to your needs. Both are perl code, so be careful
+and keep the punctuation in place.</p>
+
+<h4><a id="monikop.config"></a><code>monikop.config</code></h4>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">(This is -*- perl -*- code.)
+</span><span style="font-weight: bold; font-style: italic;">##############################################################################</span><span style="font-weight: bold; font-style: italic;">
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Monikop's configuration file.
+</span><span style="font-weight: bold; font-style: italic;">#</span><span style="font-weight: bold; font-style: italic;">
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Copy this file to `monikop.config' and adapt it to your needs.
+</span><span style="font-weight: bold; font-style: italic;">##############################################################################</span><span style="font-weight: bold; font-style: italic;">
+</span>
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Possible data Sources, and by what directory name to represent them in
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Destination.
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">When the latter is not unique, care must be taken that all pathnames in the 
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">respective Sources are unique, or files will overwrite each other in
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">unpredictable ways.
+</span>%<span style="font-weight: bold; font-style: italic; text-decoration: underline;">sources</span> = (
+    <span style="font-style: italic;">'data_producer1::data'</span> =&gt; <span style="font-style: italic;">'p1_dir'</span>,
+    <span style="font-style: italic;">'data_producer2::data'</span> =&gt; <span style="font-style: italic;">'p2_dir'</span>,
+    <span style="font-style: italic;">'data_producer3::data'</span> =&gt; <span style="font-style: italic;">''</span>,
+    <span style="font-style: italic;">'data_producer4::data'</span> =&gt; <span style="font-style: italic;">''</span>,
+    );
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Possible mount points of the removable disks.
+</span>@<span style="font-weight: bold; font-style: italic; text-decoration: underline;">usable_mount_points</span> = (
+    <span style="font-style: italic;">'/media/disk_1'</span>,
+    <span style="font-style: italic;">'/media/disk_2'</span>,
+    <span style="font-style: italic;">'/media/disk_3'</span>,
+    );
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Common directory (under a mount point) to put new data in.
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Must agree with Pokinom's setting.
+</span>$<span style="font-weight: bold; font-style: italic;">path_under_mount_point</span> =
+    <span style="font-style: italic;">'measuring_data'</span>
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Directories (under any mount point) of this name will be deleted by Monikop.
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Must agree with Pokinom's setting.
+</span>$<span style="font-weight: bold; font-style: italic;">path_under_mount_point_backed_up</span> =
+    <span style="font-style: italic;">'backed_up'</span>
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Directory name (under a mount point) while being deleted.
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Must agree with Pokinom's setting.
+</span>$<span style="font-weight: bold; font-style: italic;">path_under_mount_point_being_deleted</span> =
+    <span style="font-style: italic;">'being_deleted'</span>
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Path and file name prefix for rsync's raw logs:
+</span>$<span style="font-weight: bold; font-style: italic;">rsync_log_prefix</span> =
+    <span style="font-style: italic;">'~/log/monikop/log.'</span>
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Path and file name prefix for the list of successfully rsynced files:
+</span>$<span style="font-weight: bold; font-style: italic;">finished_prefix</span> =
+    <span style="font-style: italic;">'~/log/monikop/finished.'</span>
+    ; 
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Safe files are supposed to survive power cuts during write operations.
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">How to suffix the name of the duplicate of a safe file:
+</span>$<span style="font-weight: bold; font-style: italic;">safe_file_backup_suffix</span> =
+    <span style="font-style: italic;">'.bak'</span>
+    ; 
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">How to suffix the name of an unfinished safe file:
+</span>$<span style="font-weight: bold; font-style: italic;">safe_file_unfinished_suffix</span> =
+    <span style="font-style: italic;">'.unfinished'</span>
+    ; 
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">What to do (shutdown) when F3 has been pressed:
+</span><span style="font-weight: bold; font-style: italic;">#</span><span style="font-weight: bold; font-style: italic;">$key_f3_action =
+</span><span style="font-weight: bold; font-style: italic;">#    </span><span style="font-weight: bold; font-style: italic;">"sudo halt -p"
+</span><span style="font-weight: bold; font-style: italic;">#    </span><span style="font-weight: bold; font-style: italic;">;
+</span>
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">What to do (shutdown) when F3 has been pressed (on a systemd-based system):
+</span>$<span style="font-weight: bold; font-style: italic;">key_f3_action</span> =
+    <span style="font-style: italic;">"systemctl poweroff"</span>
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">What to do (reboot) when F6 has been pressed:
+</span><span style="font-weight: bold; font-style: italic;">#</span><span style="font-weight: bold; font-style: italic;">$key_f6_action =
+</span><span style="font-weight: bold; font-style: italic;">#    </span><span style="font-weight: bold; font-style: italic;">"sudo reboot"
+</span><span style="font-weight: bold; font-style: italic;">#    </span><span style="font-weight: bold; font-style: italic;">;
+</span>
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">What to do (reboot) when F6 has been pressed (on a systemd-based system):
+</span>$<span style="font-weight: bold; font-style: italic;">key_f6_action</span> =
+    <span style="font-style: italic;">"systemctl reboot"</span>
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Rsync's time (in seconds) to wait for a response. This is roughly the time
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Monikop needs to notice the disappearance of a Source. Must not be 0.
+</span>$<span style="font-weight: bold; font-style: italic;">rsync_timeout</span> =
+    30
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Rsync's directory (relative to mount point of removable disk) for partially
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">transferred files.
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Must agree with Pokinom's setting. Make sure your payload data does not
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">contain an equally-named directory.
+</span>$<span style="font-weight: bold; font-style: italic;">rsync_partial_dir_name</span> =
+    <span style="font-style: italic;">'.rsync_partial'</span>
+    ;
+</pre>
+
+<p>For Monikop, change in <a href="installation.html#monikop.config">monikop.config</a> at least:</p>
+
+<ul>
+<li><code>%sources</code>: Data producing Sources on Rover in one of the formats Rsync
+understands, together with a source-specific directory name where data
+of the respective Source goes. Those directory names can be equal for
+several Sources as long as all filenames in the payload are certain to be
+unique.</li>
+
+<li><code>@usable_mount_points</code>: Mount points (directories) you set up <a href="installation.html#fstab">earlier</a> for your
+removable disks.</li>
+</ul>
+
+
+<h4><a id="pokinom.config"></a><code>pokinom.config</code></h4>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">(This is -*- perl -*- code.)
+</span><span style="font-weight: bold; font-style: italic;">########################################################################</span><span style="font-weight: bold; font-style: italic;">
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Pokinom's configuration file.
+</span><span style="font-weight: bold; font-style: italic;">#</span><span style="font-weight: bold; font-style: italic;">
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Copy this file to `pokinom.config' and adapt it to your needs.
+</span><span style="font-weight: bold; font-style: italic;">########################################################################</span><span style="font-weight: bold; font-style: italic;">
+</span>
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Possible mount points of the removable disks:
+</span>@<span style="font-weight: bold; font-style: italic; text-decoration: underline;">usable_mount_points</span> = (
+    <span style="font-style: italic;">'/media/disk_1'</span>,
+    <span style="font-style: italic;">'/media/disk_2'</span>,
+    <span style="font-style: italic;">'/media/disk_3'</span>,
+    );
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Directory relative to a mount point where new data resides.
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Must agree with Monikop's setting.
+</span>$<span style="font-weight: bold; font-style: italic;">path_under_mount_point</span> =
+    <span style="font-style: italic;">'measuring_data'</span>;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Directories of this name will be deleted.
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Must agree with Monikop's setting.
+</span>$<span style="font-weight: bold; font-style: italic;">path_under_mount_point_backed_up</span> =
+    <span style="font-style: italic;">'backed_up'</span>
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Directory name while being deleted by monikop.
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Must agree with Monikop's setting.
+</span>$<span style="font-weight: bold; font-style: italic;">path_under_mount_point_being_deleted</span> =
+    <span style="font-style: italic;">'being_deleted'</span>
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Data Destination:
+</span>$<span style="font-weight: bold; font-style: italic;">destination</span> =
+    <span style="font-style: italic;">'big-server::incoming/NEW_DATA'</span>
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Credentials of the rsync server on Destination. String, or 0 if not used:
+</span>$<span style="font-weight: bold; font-style: italic;">rsync_username</span> =
+    <span style="font-style: italic;">'m-operator'</span>
+    ;
+$<span style="font-weight: bold; font-style: italic;">rsync_password</span> =
+    <span style="font-style: italic;">'sEcReT'</span>
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Path and file name prefix to rsync's raw log:
+</span>$<span style="font-weight: bold; font-style: italic;">rsync_log_prefix</span> =
+    <span style="font-style: italic;">'~/log/pokinom/log.'</span>
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Path and file name prefix to a file where a list of rsync's incompletely
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">transferred files is kept:
+</span>$<span style="font-weight: bold; font-style: italic;">interrupted_prefix</span> =
+    <span style="font-style: italic;">'~/log/pokinom/interrupted.'</span>
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Shut down when finished? (Default, can be toggled by user by pressing F9.)
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">1 = yes; 0 = stay on.
+</span>$<span style="font-weight: bold; font-style: italic;">shut_down_when_done</span> =
+    0
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">What to do (shutdown) when F3 has been pressed:
+</span><span style="font-weight: bold; font-style: italic;">#</span><span style="font-weight: bold; font-style: italic;">$shut_down_action =
+</span><span style="font-weight: bold; font-style: italic;">#    </span><span style="font-weight: bold; font-style: italic;">"sudo halt -p"
+</span><span style="font-weight: bold; font-style: italic;">#    </span><span style="font-weight: bold; font-style: italic;">;
+</span>
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">What to do (shutdown) when F3 has been pressed (on a systemd-based system):
+</span>$<span style="font-weight: bold; font-style: italic;">key_f3_action</span> =
+    <span style="font-style: italic;">"systemctl poweroff"</span>
+    ;
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Rsync's directory (relative to mount point of removable disk) for partially
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">transferred files.
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Must agree with Monikop's setting. Make sure your payload data does not
+</span><span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">contain an equally-named directory.
+</span>$<span style="font-weight: bold; font-style: italic;">rsync_partial_dir_name</span> =
+    <span style="font-style: italic;">'.rsync_partial'</span>
+    ;
+</pre>
+
+<p>For Pokinom you should edit in <a href="installation.html#pokinom.config">pokinom.config</a> at least:</p>
+
+<ul>
+<li><code>@usable_mount_points</code> (as with <a href="installation.html#monikop.config">monikop.config</a>)</li>
+<li><code>$destination</code>: Data destination in one of the formats Rsync
+understands; cf. setup of <a href="installation.html#Data_Destination">Data Destination</a>.</li>
+<li><code>$rsync_username</code>, <code>$rsync_password</code>: credentials of (and only
+known to) the Rsync server;
+cf. setup of <a href="installation.html#Data_Destination">Data Destination</a>.</li>
+</ul>
+
+
+
+<h4>Automatic Program Start</h4>
+
+<p class="first">Append to
+<code>/home/m-operator/.profile</code> (create it if necessary):</p>
+
+<pre class="src">
+/home/m-operator/monikop/monikop
+</pre>
+
+<p>or</p>
+
+<pre class="src">
+/home/m-operator/monikop/pokinom,
+</pre>
+
+<p>respectively.</p>
+
+<p>If necessary, specify path to config file, e.g.</p>
+
+<pre class="src">
+/home/m-operator/monikop/monikop /home/m-operator/monikop/monikop.config
+</pre>
+
+
+
+<h4>Setup Sudo</h4>
+
+<p class="first">(Not necessary on a systemd-based system.)</p>
+
+<p>On both Monikop's and Pokinom's host authorise m-operator to shut down computer.
+Use <code>visudo</code> to change <code>/etc/sudoers</code>; add:</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">m-operator ALL</span>=(ALL) NOPASSWD: /sbin/halt -p
+<span style="font-weight: bold; font-style: italic;">m-operator ALL</span>=(ALL) NOPASSWD: /sbin/reboot
+</pre>
+
+
+
+<h4>Automatic Login (under systemd)</h4>
+
+<p class="first">On both Monikop's and Pokinom's host, change the line in
+<code>/etc/inittab</code> that looks like</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">1</span>:2345:respawn:/sbin/getty 38400 tty1
+</pre>
+
+<p>into</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">1</span>:2345:respawn:/sbin/mingetty --autologin m-operator --noclear tty1
+</pre>
+
+
+<h4>Automatic Login (under systemd)</h4>
+
+<p class="first">On both Monikop's and Pokinom's host, create the file (and the
+containing directory)
+/etc/systemd/system/<a href="mailto:getty@tty1.service.d">getty@tty1.service.d</a>/autologin.conf:</p>
+
+<pre class="src">
+[<span style="font-weight: bold; text-decoration: underline;">Service</span>]
+<span style="font-weight: bold; font-style: italic;">ExecStart</span>=
+<span style="font-weight: bold; font-style: italic;">ExecStart</span>=-/sbin/agetty --autologin m-operator --noclear %I 38400 linux
+</pre>
+
+
+<h3><a id="Configure_Rsync_on_Sources"></a>Configure Rsync on Sources</h3>
+
+<p class="first">Install package rsync.</p>
+
+<p>Example for <code>/etc/rsyncd.conf</code>:</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">pid file</span>=/var/run/rsyncd.pid
+[<span style="font-weight: bold; text-decoration: underline;">data</span>]
+    <span style="font-weight: bold; font-style: italic;">path</span> = /mnt/hdd_0
+    <span style="font-weight: bold; font-style: italic;">use chroot</span> = false
+    <span style="font-weight: bold; font-style: italic;">lock file</span> = /var/lock/rsyncd
+    <span style="font-weight: bold; font-style: italic;">read only</span> = yes
+    <span style="font-weight: bold; font-style: italic;">list</span> = yes
+    <span style="font-weight: bold; font-style: italic;">transfer logging</span> = false
+</pre>
+
+<p>In <code>/etc/default/rsync</code>, change the line</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">RSYNC_ENABLE</span> = false
+</pre>
+
+<p>to</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">RSYNC_ENABLE</span> = true
+</pre>
+
+<p>Start rsync server:</p>
+
+<p><code># /etc/initd/rsync start</code></p>
+
+<p>or reboot.</p>
+
+
+<p>On Windows, install Cygwin for <a href="https://cygwin.com/setup-x86.exe">x86</a> or <a href="https://cygwin.com/setup-x86_64.exe">amd64</a> including package rsync.
+Start Cygwin as Administrator.</p>
+
+<p>Inside Cygwin, edit /etc/rsyncd.conf:</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">use chroot</span> = false
+<span style="font-weight: bold; font-style: italic;">strict modes</span> = false
+<span style="font-weight: bold; font-style: italic;">hosts allow</span> = *
+<span style="font-weight: bold; font-style: italic;">logfile</span> = rsyncd.log
+[<span style="font-weight: bold; text-decoration: underline;">data</span>]
+<span style="font-weight: bold; font-style: italic;">#   </span><span style="font-weight: bold; font-style: italic;">/cygdrive/e/log stands for E:\log
+</span>    <span style="font-weight: bold; font-style: italic;">path</span> = /cygdrive/e/log
+    <span style="font-weight: bold; font-style: italic;">read only</span> = false
+    <span style="font-weight: bold; font-style: italic;">transfer logging</span> = false
+</pre>
+
+<p>Configure rsync as a service:</p>
+
+<pre class="example">
+$ cygrunsrv --install &quot;rsyncd&quot; --path /usr/bin/rsync \
+  --args &quot;--daemon --no-detach&quot; \
+  --desc &quot;Start rsync daemon for accepting incoming rsync connections&quot; \
+  --disp &quot;Rsync Daemon&quot; \
+  --type auto
+</pre>
+
+<p>Start the rsync service (or just reboot):</p>
+
+<pre class="example">
+$ net start rsyncd
+</pre>
+
+<h3><a id="Network_Setup"></a>Network Setup</h3>
+
+<p class="first">Depending on the amount of data to transfer, consider putting a
+dedicated NIC for each Source into Monikop's machine.  In this case,
+you should provide for non-overlapping subnets. <a href="http://jodies.de/ipcalc">IP-Calculator</a> may be
+helpful.</p>
+
+
+<h4>Monikop</h4>
+
+<h5>Name the Sources</h5>
+
+<p><a id="etc_hosts"></a>
+Example for <code>/etc/hosts</code>:</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">127.0.0.1</span>      localhost
+<span style="font-weight: bold; font-style: italic;">192.168.200.10</span> data-producer1
+<span style="font-weight: bold; font-style: italic;">192.168.200.20</span> data-producer2
+<span style="font-weight: bold; font-style: italic;">192.168.200.30</span> data-producer3
+<span style="font-weight: bold; font-style: italic;">192.168.200.50</span> data-producer4
+<span style="font-weight: bold; font-style: italic;">192.168.178.1</span>  monikop
+</pre>
+
+
+
+<h5>Configure NICs</h5>
+
+<p>Example for <code>/etc/network/interfaces</code>:</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">The loopback network interface
+</span><span style="font-weight: bold; font-style: italic;">auto</span> lo
+<span style="font-weight: bold; font-style: italic;">iface</span> lo inet loopback
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Net of smaller Sources
+</span><span style="font-weight: bold; font-style: italic;">allow-hotplug</span> eth1
+<span style="font-weight: bold; font-style: italic;">iface</span> eth1 inet static
+   <span style="font-weight: bold; font-style: italic;">address</span> 192.168.178.1
+   <span style="font-weight: bold; font-style: italic;">netmask</span> 255.255.255.0
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Dedicated NIC for data-producer1
+</span><span style="font-weight: bold; font-style: italic;">allow-hotplug</span> eth2
+<span style="font-weight: bold; font-style: italic;">iface</span> eth2 inet static
+   <span style="font-weight: bold; font-style: italic;">address</span> 192.168.200.9
+   <span style="font-weight: bold; font-style: italic;">netmask</span> 255.255.255.248
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Dedicated NIC for data_producer2
+</span><span style="font-weight: bold; font-style: italic;">allow-hotplug</span> eth3
+<span style="font-weight: bold; font-style: italic;">iface</span> eth3 inet static
+   <span style="font-weight: bold; font-style: italic;">address</span> 192.168.200.19
+   <span style="font-weight: bold; font-style: italic;">netmask</span> 255.255.255.248
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Dedicated NIC for data_producer3
+</span><span style="font-weight: bold; font-style: italic;">allow-hotplug</span> eth4
+<span style="font-weight: bold; font-style: italic;">iface</span> eth4 inet static
+   <span style="font-weight: bold; font-style: italic;">address</span> 192.168.200.29
+   <span style="font-weight: bold; font-style: italic;">netmask</span> 255.255.255.248
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Dedicated NIC for data_producer4
+</span><span style="font-weight: bold; font-style: italic;">allow-hotplug</span> eth5
+<span style="font-weight: bold; font-style: italic;">iface</span> eth5 inet static
+   <span style="font-weight: bold; font-style: italic;">address</span> 192.168.200.49
+   <span style="font-weight: bold; font-style: italic;">netmask</span> 255.255.255.248
+</pre>
+
+
+
+
+<h4>Data Sources</h4>
+
+<p class="first">Use <a href="installation.html#etc_hosts">/etc/hosts</a> as with Monikop. For Windows, it's <code>%SystemRoot%\system32\drivers\etc\hosts</code>.</p>
+
+
+<h5>Source's NIC</h5>
+
+<p>Example for <code>/etc/network/interfaces</code>:</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">auto</span> lo
+<span style="font-weight: bold; font-style: italic;">iface</span> lo inet loopback
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">service (not relevant for Monikop)
+</span><span style="font-weight: bold; font-style: italic;">allow-hotplug</span> eth0
+<span style="font-weight: bold; font-style: italic;">iface</span> eth0 inet static
+   <span style="font-weight: bold; font-style: italic;">address</span> 192.168.178.2
+   <span style="font-weight: bold; font-style: italic;">netmask</span> 255.255.255.0
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Monikop's dedicated NIC
+</span><span style="font-weight: bold; font-style: italic;">allow-hotplug</span> eth1
+<span style="font-weight: bold; font-style: italic;">iface</span> eth1 inet static
+   <span style="font-weight: bold; font-style: italic;">address</span> 192.168.200.10
+   <span style="font-weight: bold; font-style: italic;">netmask</span> 255.255.255.248
+</pre>
+
+<p>For Windows, configure your network settings accordingly.</p>
+
+
+
+
+<h4>Pokinom</h4>
+
+<p class="first">Pokinom's network settings don't need any special treatment. Just
+integrate it into the office LAN Destination is connected to.</p>
+
+
+<h3><a id="Data_Destination"></a>Data Destination</h3>
+
+<h4>Rsync Server on Destination</h4>
+
+<p class="first">Install package rsync.</p>
+
+<p>Adapt <code>/etc/rsyncd.conf</code>, e.g.:</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">gid</span> = data_receiving_group
+<span style="font-weight: bold; font-style: italic;">use chroot</span> = yes
+<span style="font-weight: bold; font-style: italic;">max connections</span> = 0
+<span style="font-weight: bold; font-style: italic;">pid file</span> = /var/run/rsyncd.pid
+
+[<span style="font-weight: bold; text-decoration: underline;">incoming</span>]
+        <span style="font-weight: bold; font-style: italic;">path</span> = /mnt/./raid_0
+        <span style="font-weight: bold; font-style: italic;">list</span> = no
+        <span style="font-weight: bold; font-style: italic;">comment</span> = Pokinom only; requires authentication
+        <span style="font-weight: bold; font-style: italic;">read only</span> = no
+        <span style="font-weight: bold; font-style: italic;">incoming chmod</span> = g+r,g+w,g+X
+        <span style="font-weight: bold; font-style: italic;">write only</span> = yes
+        <span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">Pokinom's IP:
+</span>        <span style="font-weight: bold; font-style: italic;">hosts allow</span> = 192.168.180.120
+        <span style="font-weight: bold; font-style: italic;">auth users</span> = m-operator
+        <span style="font-weight: bold; font-style: italic;">secrets file</span> = /etc/rsyncd.secrets
+</pre>
+
+<p><code>/etc/rsyncd.secrets</code> contains Rsync's credentials which must
+correspond to settings <code>$rsync_passwd</code> and <code>$rsync_username</code> in <a href="installation.html#pokinom.config">pokinom.config</a>:</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">m-operator</span>:sEcReT
+</pre>
+
+<p><code>/etc/rsyncd.secrets</code> must not be world-readable.</p>
+
+<p>In <code>/etc/default/rsync</code>, change the line</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">RSYNC_ENABLE</span> = false
+</pre>
+
+<p>to</p>
+
+<pre class="src">
+<span style="font-weight: bold; font-style: italic;">RSYNC_ENABLE</span> = true
+</pre>
+
+<p>Start rsync server:</p>
+
+<pre class="example">
+# /etc/initd/rsync start
+</pre>
+
+<p>or reboot.</p>
+
+<p>With the above, rsync puts the payload it receives into
+<code>/mnt/raid_0/NEW_DATA/</code>. (&quot;<code>NEW_DATA</code>&quot; was set with
+<code>$destination</code> in <a href="installation.html#pokinom.config">pokinom.config</a>.)</p>
+
+<p><code>NEW_DATA/</code> and everything inside belongs to user
+nobody and group data_receiving_group.</p>
+
+<p>If on Destination you can't do without Windows, install rsync under
+Cygwin as described <a href="installation.html#Configure_Rsync_on_Sources">above</a>.</p>
+
+
+
+
+<!-- Page published by Emacs Muse ends here -->
+    </div><!-- end content -->
+    <div id="footer">
+      <div id="footer-right">
+        <p><a href="http://validator.w3.org/check?uri=referer">XHTML 1.1</a></p>
+
+      </div>
+      <p>&copy;  2010, 2015 | <a href="mailto:trebbu@googlemail.com?subject=MONIKOP%20">Bert Burgemeister</a></p>
+
+    </div><!-- end footer -->
+  </body>
+</html>
