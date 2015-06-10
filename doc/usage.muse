@@ -94,7 +94,9 @@ in both [[installation#monikop.config][monikop.config]] and
 Suppose the system reports disk error on (say) /dev/sdb1. What is it's
 label?
 
-=ls -l /dev/disk/by-label=
+<example>
+ls -l /dev/disk/by-label
+</example>
 
 shows the mapping.
 

@@ -31,30 +31,38 @@ Put sticker labels with disk names on your removable disks.
 Create labelled file systems on the removable disks. Example
 (suppose a removable disk with a sticker label "=disk_10=" on its case is attached to =/dev/sdg1=): 
 
-=# mke2fs -j -L disk_10 /dev/sdg1=
+<example>
+# mke2fs -j -L disk_10 /dev/sdg1
+</example>
 
 On both Monikop's and Pokinom's host, label the system root
 partition. If it were on =/dev/sda1/, that's e.g.=:
 
-=# e2label /dev/sda1 root=
+<example>
+# e2label /dev/sda1 root
+</example>
 
 On both Monikop's and Pokinom's host, label the swap partition. If it
 happens to be on /dev/sda5, e.g.: 
 
-=# swapoff=
+<example>
+# swapoff
 
-=# mkswap -L swap /dev/sda5=
+# mkswap -L swap /dev/sda5
 
-=# swapon=
+# swapon
+</example>
  
 *** Mount Points
 
 On both Monikop's and Pokinom's host, create mount points, one for
-each removable disk: 
+each removable disk:
 
-=# mkdir -p /media/disk_{01,02,03,04...}=
+<example>
+# mkdir -p /media/disk_{01,02,03,04...}
 
-=# chmod a+rx /media/disk_{01,02,03,04...}=
+# chmod a+rx /media/disk_{01,02,03,04...}
+</example>
 
 #fstab
 In =/etc/fstab= on both Monikop's and Pokinom's host, make use of the disk labels:
@@ -73,10 +81,12 @@ LABEL=disk_04  /media/disk_04  ext3  rw,user,auto               0  0
 
 Put each removable disk in and make it writable; e.g.:
 
-=# mount /media/disk_01=
+<example>
+# mount /media/disk_01
 
-=# chmod a+rwx /media/disk_01=
- 
+# chmod a+rwx /media/disk_01
+</example>
+
 *** Maintain Bootability
 
 On both Monikop's and Pokinom's host, make sure the operating system boots
@@ -103,7 +113,9 @@ ones. Change =/boot/grub/menu.lst= where it says <code># kopt=root=...</code>:
  
 and call
  
-=# update-grub=
+<example>
+# update-grub
+</example>
 
 
 #Configure_Monikop_and_Pokinom
@@ -115,11 +127,13 @@ description's sake, we assume they're called m-operator.
 Inside m-operator's home directory, [[download][get Monikop (and Pokinom)]];
 unpack the tarball:
 
-=$ tar -xzf monikop-<version>.tar.gz=
+<example>
+$ tar -xzf monikop-<version>.tar.gz
 
-=$ mv monikop-<version> monikop=
+$ mv monikop-<version> monikop
 
-=$ cd monikop=.
+$ cd monikop
+</example>
 
 Copy =monikop.config.example= to =monikop.config= and
 =pokinom.config.example= to =pokinom.config, respectively,= and
@@ -260,9 +274,10 @@ Start rsync server:
 or reboot.
 
 
-On Windows, install
-[[http://sourceforge.net/projects/sereds/files/cwRsync/4.0.3/cwRsyncServer_4.0.3_Installer.zip/download][cwRsync]]. Click
-Start, Programs, cwRsyncServer, rsyncd.conf; edit:
+On Windows, install Cygwin for [[https://cygwin.com/setup-x86.exe][x86]] or [[https://cygwin.com/setup-x86_64.exe][amd64]] including package rsync.
+Start Cygwin as Administrator.
+
+Inside Cygwin, edit /etc/rsyncd.conf:
 
 <src lang="conf">
 use chroot = false
@@ -276,9 +291,20 @@ logfile = rsyncd.log
     transfer logging = false
 </src>
 
-Configure service RsyncServer: right-click My Computer; click Manage, Services
-and Applications, Services, RsyncServer; set Startup Type to Automatic.
+Configure rsync as a service:
 
+<example>
+$ cygrunsrv --install "rsyncd" --path /usr/bin/rsync \
+  --args "--daemon --no-detach" \
+  --desc "Start rsync daemon for accepting incoming rsync connections" \
+  --disp "Rsync Daemon" \
+  --type auto
+</example>
+
+Start the rsync service (or just reboot):
+<example>
+$ net start rsyncd
+</example>
 
 #Network_Setup
 ** Network Setup
@@ -432,7 +458,9 @@ RSYNC_ENABLE = true
 
 Start rsync server:
 
-=# /etc/initd/rsync start=
+<example>
+# /etc/initd/rsync start
+</example>
 
 or reboot.
 
@@ -443,10 +471,7 @@ With the above, rsync puts the payload it receives into
 =NEW_DATA/= and everything inside belongs to user
 nobody and group data_receiving_group.
 
-If on Destination you can't do without Windows, install 
-[[http://sourceforge.net/projects/sereds/files/cwRsync/4.0.3/cwRsyncServer_4.0.3_Installer.zip/download][cwRsync]],
-configure its =rsyncd.conf= accordingly, and set service rsync to
-automatic start.
+If on Destination you can't do without Windows, install rsync under
+Cygwin as described [[installation#Configure_Rsync_on_Sources][above]].
 
 ; TODO: net topology for Monikop, for Pokinom
-

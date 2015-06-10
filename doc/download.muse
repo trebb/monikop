@@ -13,6 +13,8 @@ Check out the [[news][Release Notes]].
 
 ** Development Version (Git Repository)
 
+<example>
 $ git clone https://github.com/trebb/monikop.git
+</example>
 
 [[https://github.com/trebb/monikop][GitHub]]
